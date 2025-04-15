@@ -9,6 +9,13 @@ const bodyParser = require('body-parser');
 const sharp = require('sharp');
 require('dotenv').config();
 
+// Create the 'images' directory if it doesn't exist
+const imagesDir = path.join(__dirname, 'images');
+if (!fs.existsSync(imagesDir)) {
+    fs.mkdirSync(imagesDir);
+    console.log(`Directory "${imagesDir}" created.`);
+}
+
 let pages = []; // Array to hold multiple page instances
 let pageStatuses = []; // Array to track the status of each page (FREE/BUSY)
 const NUM_INSTANCES = 1; // Number of browser instances to run
