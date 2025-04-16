@@ -303,6 +303,43 @@ async function searchLoras(loraName, page) {
     return loraList;
 }
 
+// Lora search cache
+const loraSearchCache = new Map();
+const LORA_CACHE_FILE = path.join(__dirname,'lora_cache.json');
+
+// Load cache from file on startup
+function loadLoraCache() {
+    try {
+        const data = fs.readFileSync(LORA_CACHE_FILE, 'utf8');
+        const parsedCache = JSON.parse(data);
+        for (const key in parsedCache) {
+            loraSearchCache.set(key, parsedCache[key]);
+        }
+        console.log(`Lora cache loaded from ${LORA_CACHE_FILE}`);
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            // File does not exist, create it with an empty JSON object
+            fs.writeFileSync(LORA_CACHE_FILE, '{}', 'utf8');
+            console.log(`Lora cache file created: ${LORA_CACHE_FILE}`);
+        } else {
+            console.warn(`Failed to load Lora cache from ${LORA_CACHE_FILE}: ${error.message}`);
+        }
+    }
+}
+
+// Save cache to file
+function saveLoraCache() {
+    const cacheToSave = Object.fromEntries(loraSearchCache);
+    try {
+        fs.writeFileSync(LORA_CACHE_FILE, JSON.stringify(cacheToSave), 'utf8');
+        console.log(`Lora cache saved to ${LORA_CACHE_FILE}`);
+    } catch (error) {
+        console.error(`Failed to save Lora cache to ${LORA_CACHE_FILE}: ${error.message}`);
+    }
+}
+
+loadLoraCache();
+
 // --- Queue Processing Function ---
 async function processQueue() {
     if (processing || jobQueue.length === 0) return;
@@ -359,6 +396,14 @@ async function processLoraSearchQueue() {
     loraSearchProcessing = true;
 
     try {
+        // Check if the result is cached
+        if (loraSearchCache.has(query)) {
+            console.log(`Using cached result for Lora search: ${query}`);
+            const cachedResult = loraSearchCache.get(query);
+            res.send(cachedResult);
+            return;
+        }
+
         // Ensure the Lora search page is available
         if (!loraSearchPage) {
             console.log("Lora search page not ready, requeuing...");
@@ -370,6 +415,9 @@ async function processLoraSearchQueue() {
 
         // Perform the Lora search
         const loraList = await searchLoras(query, loraSearchPage);
+        // Cache the result
+        loraSearchCache.set(query, loraList);
+        saveLoraCache(); // Save the cache after updating it
         res.send(loraList); // Send the results back to the client
     } catch (error) {
         console.error("Error searching for Lora:", error);
