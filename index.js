@@ -16,17 +16,17 @@ if (!fs.existsSync(imagesDir)) {
     console.log(`Directory "${imagesDir}" created.`);
 }
 
-let pages = []; // Array to hold multiple page instances
-let pageStatuses = []; // Array to track the status of each page (FREE/BUSY)
-const NUM_INSTANCES = 1; // Number of browser instances to run
+let page = null; // Single page instance
 let WEIGHTS_GG_COOKIE = process.env.WEIGHTS_GG_COOKIE; // Cookie for weights.gg
 
-let spaces = {}; // Dictionary to hold space instances
-let spaceStatuses = {}; // Dictionary to track the status of each space (FREE/BUSY)
+let oldLoraname = null; // Variable to hold the previous Lora name
+
+// --- Queue System ---
+let jobQueue = [];
+let processing = false;
 
 // --- Utility Functions ---
 const generateImageId = () => crypto.randomBytes(16).toString("hex");
-const generateSpaceId = () => crypto.randomBytes(16).toString("hex");
 
 const downloadImage = (url, imageId) => {
     return new Promise((resolve, reject) => {
@@ -109,8 +109,11 @@ async function generateImage(prompt, page, emitter, imageId) {
         generateButton.click();
 
         let oldPreview = null;
-        await sleepBrowser(3000);
         let generatedImageElement = document.querySelector('img[alt="Generated Image"]');
+        while (generatedImageElement && generatedImageElement.src) {
+            await sleepBrowser(10);
+            generatedImageElement = document.querySelector('img[alt="Generated Image"]');
+        }
 
         while (!generatedImageElement || !generatedImageElement.src) {
             console.log("Image not generated yet, waiting...");
@@ -205,12 +208,13 @@ async function createImageJob(prompt, page, emitter, imageId) {
         const result = await generateImage(prompt, page, emitter, imageId);
         console.log("Final image URL:", result.url);
         await handleImageResult(result, imageId);
+        updateImageStatus(imageId, 'COMPLETED');
+    } catch (error) {
+        console.error("Error generating image:", error);
+        updateImageStatus(imageId, 'FAILED', error.message);
     } finally {
-        // Find the index of the current page and set its status to FREE
-        const pageIndex = pages.indexOf(page);
-        if (pageIndex !== -1) {
-            pageStatuses[pageIndex] = 'FREE';
-        }
+        processing = false;
+        processQueue();
     }
 }
 
@@ -229,6 +233,63 @@ const updateImageStatus = (imageId, status, error = null) => {
         ...(error ? { error: error } : {}), // Add error only if it exists
     };
 };
+
+// --- Queue Processing Function ---
+async function processQueue() {
+    if (processing || jobQueue.length === 0) {
+        return;
+    }
+
+    const job = jobQueue.shift();
+    const { prompt, loraName, imageId, res, emitter } = job;
+
+    if (!page) {
+        jobQueue.unshift(job);
+        console.log("Page not ready, waiting 5 seconds...");
+        setTimeout(processQueue, 5000); // Check again in 5 seconds
+        return;
+    }
+
+    processing = true;
+
+    imageStatuses[imageId] = {
+        status: 'STARTING',
+        prompt: decodeURIComponent(prompt),
+        startTime: new Date(),
+    };
+
+    try {
+        if (loraName) {
+            if (oldLoraname !== loraName) {
+                if (oldLoraname) {
+                    await removeLora(page);
+                }
+                await addLora(loraName, page);
+                oldLoraname = loraName;
+            }
+        } else {
+            if (oldLoraname) {
+                await removeLora(page);
+                oldLoraname = null;
+            }
+        }
+
+        res.send({
+            success: true,
+            imageId: imageId,
+            imageUrl: `${API_URL}/${imageId}.jpg`,
+            statusUrl: `${API_URL}/status/${imageId}`,
+        });
+
+        await createImageJob(decodeURIComponent(prompt), page, emitter, imageId);
+    } catch (error) {
+        console.error("Error generating image:", error);
+        updateImageStatus(imageId, 'FAILED', error.message);
+        res.status(500).send({ success: false, error: "Failed to generate image." });
+        processing = false;
+        processQueue(); // Process next item in queue
+    }
+}
 
 // --- Express Routes ---
 const setupExpressRoutes = (emitter, port) => {
@@ -249,87 +310,11 @@ const setupExpressRoutes = (emitter, port) => {
     };
 
     // Apply the API key check middleware to the routes that require authentication
-    app.use('/allocateSpace', apiKeyCheck);
-    app.use('/addLora', apiKeyCheck);
-    app.use('/removeLora', apiKeyCheck);
     app.use('/status', apiKeyCheck);
-    app.use('/generateImageJob', apiKeyCheck);
+    app.use('/generateImage', apiKeyCheck);
 
     app.get('/health', (req, res) => {
         res.send({ status: 'OK' });
-    });
-
-    app.get('/allocateSpace', async (req, res) => {
-        const spaceId = generateSpaceId();
-        // Find the first available FREE page
-        const availablePageIndex = pageStatuses.indexOf('FREE');
-        if (availablePageIndex === -1) {
-            return res.status(429).send({ error: "All instances are currently busy, please wait." });
-        }
-
-        spaces[spaceId] = pages[availablePageIndex];
-        spaceStatuses[spaceId] = 'FREE';
-
-        res.send({ success: true, spaceId: spaceId });
-    });
-
-    app.get('/addLora', async (req, res) => {
-        const { loraName, spaceId } = req.query;
-        if (!loraName) {
-            return res.status(400).send({ error: "Lora name is required." });
-        }
-        if (!spaceId) {
-            return res.status(400).send({ error: "Space ID is required." });
-        }
-
-        if (!spaces[spaceId]) {
-            return res.status(404).send({ error: "Space ID not found." });
-        }
-
-        if (spaceStatuses[spaceId] === 'BUSY') {
-            return res.status(429).send({ error: "Space is currently busy, please wait." });
-        }
-
-        const page = spaces[spaceId];
-        spaceStatuses[spaceId] = 'BUSY';
-
-        try {
-            await addLora(loraName, page);
-            res.send({ success: true });
-            spaceStatuses[spaceId] = 'FREE';
-        } catch (error) {
-            console.error("Error adding Lora:", error);
-            res.status(500).send({ success: false, error: "Failed to add Lora." });
-            spaceStatuses[spaceId] = 'FREE';
-        }
-    });
-
-    app.get('/removeLora', async (req, res) => {
-        const { spaceId } = req.query;
-         if (!spaceId) {
-            return res.status(400).send({ error: "Space ID is required." });
-        }
-
-        if (!spaces[spaceId]) {
-            return res.status(404).send({ error: "Space ID not found." });
-        }
-
-        if (spaceStatuses[spaceId] === 'BUSY') {
-            return res.status(429).send({ error: "Space is currently busy, please wait." });
-        }
-
-        const page = spaces[spaceId];
-        spaceStatuses[spaceId] = 'BUSY';
-
-        try {
-            await removeLora(page);
-            res.send({ success: true });
-            spaceStatuses[spaceId] = 'FREE';
-        } catch (error) {
-            console.error("Error removing Lora:", error);
-            res.status(500).send({ success: false, error: "Failed to remove Lora." });
-            spaceStatuses[spaceId] = 'FREE';
-        }
     });
 
     app.get('/status/:imageId', (req, res) => {
@@ -338,52 +323,26 @@ const setupExpressRoutes = (emitter, port) => {
         res.send(status);
     });
 
-    app.get('/generateImageJob', async (req, res) => {
-        const { prompt, spaceId } = req.query;
+    app.get('/generateImage', async (req, res) => {
+        const { prompt, loraName } = req.query;
+
         if (!prompt) {
             return res.status(400).send({ error: "Prompt is required." });
         }
-        if (!spaceId) {
-            return res.status(400).send({ error: "Space ID is required." });
-        }
-
-       if (!spaces[spaceId]) {
-            return res.status(404).send({ error: "Space ID not found." });
-        }
-
-        if (spaceStatuses[spaceId] === 'BUSY') {
-            return res.status(429).send({ error: "Space is currently busy, please wait." });
-        }
-
-        const page = spaces[spaceId];
-        spaceStatuses[spaceId] = 'BUSY'; // Mark the space as busy
 
         const imageId = generateImageId();
 
-        imageStatuses[imageId] = {
-            status: 'STARTING',
-            prompt: decodeURIComponent(prompt),
-            startTime: new Date(),
-            spaceId: spaceId, // Add the spaceId to the status
-        };
+        // Add the job to the queue
+        jobQueue.push({
+            prompt: prompt,
+            loraName: loraName,
+            imageId: imageId,
+            res: res,
+            emitter: emitter,
+        });
 
-        try {
-            res.send({
-                success: true,
-                imageId: imageId,
-                imageUrl: `${API_URL}/${imageId}.jpg`,
-                statusUrl: `${API_URL}/status/${imageId}`,
-                spaceId: spaceId, // Return the spaceId to the client
-            });
-            await createImageJob(decodeURIComponent(prompt), page, emitter, imageId);
-            updateImageStatus(imageId, 'COMPLETED');
-            spaceStatuses[spaceId] = 'FREE';
-        } catch (error) {
-            console.error("Error generating image:", error);
-            updateImageStatus(imageId, 'FAILED', error.message);
-            res.status(500).send({ success: false, error: "Failed to generate image." });
-            spaceStatuses[spaceId] = 'FREE'; // Mark the space as free in case of error
-        }
+        // Start processing the queue if it's not already running
+        processQueue();
     });
 
     app.listen(port, () => {
@@ -395,53 +354,46 @@ const setupExpressRoutes = (emitter, port) => {
 
 // --- Main Function ---
 async function main(callback) {
-    // Initialize multiple browser instances
-    await Promise.race(Array.from({ length: NUM_INSTANCES }, async (_, i) => {
-        const { browser, page } = await connect({ headless: false, args: [], customConfig: {}, turnstile: true, connectOption: {}, disableXvfb: false, ignoreAllFlags: false });
-        pages.push(page);
-        pageStatuses.push('FREE'); // Initially all pages are free
-        await onStart(page);
-        // console.log(`Instance ${i + 1} ready`);
-    }));
+    const { browser, page: newPage } = await connect({ headless: false, args: [], customConfig: {}, turnstile: true, connectOption: {}, disableXvfb: false, ignoreAllFlags: false });
+    page = newPage;
+    await onStart(page);
 
     const emitter = new events.EventEmitter();
 
     // Expose function for preview updates
-    for (const page of pages) {
-        await page.exposeFunction('handlePreviewUpdate', async (data) => {
-            console.log("Image preview updated in main process");
-            emitter.emit('previewUpdate', data);
-            try {
-                if (data.url.startsWith('data:image')) {
-                    await saveBase64Image(data.url.replace(/^data:image\/(png|jpeg|jpg);base64,/, ''), data.imageId);
-                } else {
-                    const filePath = await downloadImage(data.url, data.imageId);
-                    console.log(`Image preview saved to ${filePath}`);
-                }
-                updateImageStatus(data.imageId, 'PENDING', null);
-                imageStatuses[data.imageId].lastModifiedDate = new Date().getTime();
-            } catch (error) {
-                console.error("Error downloading image:", error);
+    await page.exposeFunction('handlePreviewUpdate', async (data) => {
+        console.log("Image preview updated in main process");
+        emitter.emit('previewUpdate', data);
+        try {
+            if (data.url.startsWith('data:image')) {
+                await saveBase64Image(data.url.replace(/^data:image\/(png|jpeg|jpg);base64,/, ''), data.imageId);
+            } else {
+                const filePath = await downloadImage(data.url, data.imageId);
+                console.log(`Image preview saved to ${filePath}`);
             }
-        });
+            updateImageStatus(data.imageId, 'PENDING', null);
+            imageStatuses[data.imageId].lastModifiedDate = new Date().getTime();
+        } catch (error) {
+            console.error("Error downloading image:", error);
+        }
+    });
 
-        await page.evaluate(() => {
-            window.addEventListener('previewUpdate', (event) => {
-                window.handlePreviewUpdate(event.detail);
-            });
+    await page.evaluate(() => {
+        window.addEventListener('previewUpdate', (event) => {
+            window.handlePreviewUpdate(event.detail);
         });
-    }
+    });
 
     // --- Express App Setup ---
     const port = 3000;
     const app = setupExpressRoutes(emitter, port);
 
-    callback(pages, emitter);
+    callback(page, emitter);
 }
 
-main((pages, emitter) => {
+main((page, emitter) => {
     // Optional callback after main setup is complete
-    console.log(`${pages.length} instances are ready.`);
+    console.log(`One instance is ready.`);
 });
 
 process.on('uncaughtException', (error) => {
