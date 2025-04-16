@@ -136,3 +136,4 @@ dist
 .pnp.*
 
 images/*
+lora_cache.json
