@@ -7,6 +7,7 @@ const https = require('https');
 const express = require('express');
 const bodyParser = require('body-parser');
 const sharp = require('sharp');
+const process = require('process');
 require('dotenv').config();
 
 // --- Configuration ---
@@ -142,6 +143,8 @@ async function generateImage(prompt, page, emitter, imageId) {
 
         // Focus on the image input
         const imageInput = document.querySelector("#imagegen-input");
+        imageInput.focus();
+        imageInput.click();
         imageInput.innerText = prompt;
         imageInput.dispatchEvent(new Event("input", { bubbles: true }));
         imageInput.dispatchEvent(new Event("change", { bubbles: true }));
@@ -165,6 +168,13 @@ async function generateImage(prompt, page, emitter, imageId) {
         while (!generatedImageElement || !generatedImageElement.src) {
             console.log("Image not generated yet, waiting...");
             await sleepBrowser(10);
+
+            // Error toast
+            if(document.querySelector(".Toastify__toast-container")) {
+                document.querySelector(".Toastify__toast-container").remove();
+                console.log("Error toast removed");
+                return { error: "Error generating image. Filters doesn't really love your prompt..." };
+            }
 
             const previewElement = document.querySelector('img[alt="image-preview"]');
             if (previewElement && oldPreview !== previewElement.src) {
@@ -253,14 +263,32 @@ async function handleImageResult(result, imageId) {
 
 async function createImageJob(prompt, page, emitter, imageId) {
     try {
+        updateImageStatus(imageId, 'STARTING');
         const result = await generateImage(prompt, page, emitter, imageId);
-        console.log("Final image URL:", result.url);
-        await handleImageResult(result, imageId);
-        updateImageStatus(imageId, 'COMPLETED');
+        if(result.error) {
+            console.error("Error generating image:", result.error);
+            updateImageStatus(imageId, 'FAILED', result.error);
+            // console.log("This is pid " + process.pid);
+            // setTimeout(function () {
+            //     process.on("exit", function () {
+            //         require("child_process").spawn(process.argv.shift(), process.argv, {
+            //             cwd: process.cwd(),
+            //             detached : true,
+            //             stdio: "inherit"
+            //         });
+            //     });
+            //     process.exit();
+            // }, 500);
+        } else {
+            console.log("Final image URL:", result.url);
+            await handleImageResult(result, imageId);
+            updateImageStatus(imageId, 'COMPLETED');    
+        }
     } catch (error) {
         console.error("Error generating image:", error);
         updateImageStatus(imageId, 'FAILED', error.message);
     } finally {
+        console.log("Image job finished for ID:", imageId);
         processing = false;
         processQueue();
     }
@@ -272,12 +300,7 @@ async function searchLoras(loraName, page) {
         const loraButton = document.querySelector("button.hover-scale.flex.h-7.w-full.items-center.gap-2.rounded-lg.bg-gray-100.px-2");
         loraButton.click();
         await sleepBrowser(500);
-    }, loraName);
-    await page.type('[id^="«r"]', decodeURIComponent(loraName));
-    await page.keyboard.press('Enter');
-
-    const loraList = await page.evaluate(async (loraName) => {
-        const sleepBrowser = ms => new Promise(r => setTimeout(r, ms));
+        
         async function waitForAndQuerySelector(selector) {
             while (!document.querySelector(selector)) {
                 console.log(`${selector} not loaded yet, waiting...`);
@@ -285,19 +308,37 @@ async function searchLoras(loraName, page) {
             }
             return document.querySelector(selector);
         }
-        await waitForAndQuerySelector("div.flex.outline-none.flex-col.items-center.gap-4.w-full.md\\:w-\\[400px\\].min-h-\\[200px\\].absolute.bottom-0.md\\:bottom-auto.md\\:top-1\\/2.md\\:left-1\\/2.md\\:-translate-x-1\\/2.md\\:-translate-y-1\\/2.px-6.py-6.rounded-t-3xl.md\\:rounded-3xl.shadow-lg.bg-white.dark\\:bg-neutral-800.max-h-screen.overflow-y-auto.overflow-x-hidden.pb-\\[var\\(--is-mobile-pb\\)\\].md\\:pb-\\[var\\(--is-mobile-pb-md\\)\\] > div > div.h-96.w-full.overflow-hidden.rounded-2xl.bg-gray-100.dark\\:bg-neutral-900 > div > div > div:nth-child(2) > div > div > div")
-        await sleepBrowser(500);
-        const loraListElement = await waitForAndQuerySelector('div[data-testid="virtuoso-item-list"]')
-        console.log("List loaded")
+        await waitForAndQuerySelector('[id^="«r"]');
+    }, loraName);
+    await page.type('[id^="«r"]', decodeURIComponent(loraName));
+    await page.keyboard.press('Enter');
 
-        const loraList = [...loraListElement.children].map(u=>{
-            return {
-                name: u.querySelector("h3").innerText.trim(),
-                image: u.querySelector("img").src,
-                tags: [...u.querySelectorAll("div > div > .rounded-md")].map(u=>u?.innerText.trim()).filter(u=>u),
-            }
-        })
-        return loraList;
+    const loraList = await page.evaluate(async (loraName) => {
+        const sleepBrowser = ms => new Promise(r => setTimeout(r, ms));
+
+        while(
+            !document.querySelector("div.flex.outline-none.flex-col.items-center.gap-4.w-full.md\\:w-\\[400px\\].min-h-\\[200px\\].absolute.bottom-0.md\\:bottom-auto.md\\:top-1\\/2.md\\:left-1\\/2.md\\:-translate-x-1\\/2.md\\:-translate-y-1\\/2.px-6.py-6.rounded-t-3xl.md\\:rounded-3xl.shadow-lg.bg-white.dark\\:bg-neutral-800.max-h-screen.overflow-y-auto.overflow-x-hidden.pb-\\[var\\(--is-mobile-pb\\)\\].md\\:pb-\\[var\\(--is-mobile-pb-md\\)\\] > div > div.h-96.w-full.overflow-hidden.rounded-2xl.bg-gray-100.dark\\:bg-neutral-900 > div > div > div:nth-child(2) > div > div > div")
+        &&  !document.querySelector("body > div:nth-child(15) > div.flex.outline-none.flex-col.items-center.gap-4.w-full.md\\:w-\\[400px\\].min-h-\\[200px\\].absolute.bottom-0.md\\:bottom-auto.md\\:top-1\\/2.md\\:left-1\\/2.md\\:-translate-x-1\\/2.md\\:-translate-y-1\\/2.px-6.py-6.rounded-t-3xl.md\\:rounded-3xl.shadow-lg.bg-white.dark\\:bg-neutral-800.max-h-screen.overflow-y-auto.overflow-x-hidden.pb-\\[var\\(--is-mobile-pb\\)\\].md\\:pb-\\[var\\(--is-mobile-pb-md\\)\\] > div > div.h-96.w-full.overflow-hidden.rounded-2xl.bg-gray-100.dark\\:bg-neutral-900 > div > p")
+        ) {
+            console.log("Lora list not loaded yet, waiting...");
+            await sleepBrowser(10);
+        }
+        // await waitForAndQuerySelector("div.flex.outline-none.flex-col.items-center.gap-4.w-full.md\\:w-\\[400px\\].min-h-\\[200px\\].absolute.bottom-0.md\\:bottom-auto.md\\:top-1\\/2.md\\:left-1\\/2.md\\:-translate-x-1\\/2.md\\:-translate-y-1\\/2.px-6.py-6.rounded-t-3xl.md\\:rounded-3xl.shadow-lg.bg-white.dark\\:bg-neutral-800.max-h-screen.overflow-y-auto.overflow-x-hidden.pb-\\[var\\(--is-mobile-pb\\)\\].md\\:pb-\\[var\\(--is-mobile-pb-md\\)\\] > div > div.h-96.w-full.overflow-hidden.rounded-2xl.bg-gray-100.dark\\:bg-neutral-900 > div > div > div:nth-child(2) > div > div > div")
+        await sleepBrowser(500);
+        if(document.querySelector('div[data-testid="virtuoso-item-list"]')) {
+            const loraListElement = document.querySelector('div[data-testid="virtuoso-item-list"]')
+            console.log("List loaded")
+
+            return [...loraListElement.children].map(u=>{
+                return {
+                    name: u.querySelector("h3").innerText.trim(),
+                    image: u.querySelector("img").src,
+                    tags: [...u.querySelectorAll("div > div > .rounded-md")].map(u=>u?.innerText.trim()).filter(u=>u),
+                }
+            })
+        } else {
+            return [];            
+        }
     })
     await page.keyboard.press('Escape');
     return loraList;
@@ -355,7 +396,6 @@ async function processQueue() {
     }
 
     processing = true;
-    updateImageStatus(imageId, 'STARTING');
 
     try {
         if (loraName) {
