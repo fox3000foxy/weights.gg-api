@@ -17,7 +17,7 @@ const PORT = 3000;
 const MAX_QUEUE_SIZE = 10;
 
 // --- Constants ---
-const IMAGE_WIDTH = 300; // Width for preview images
+const IMAGE_WIDTH = 400; // Width for preview images
 const IMAGE_DIR = path.join(__dirname, 'images');
 
 // --- Globals ---
