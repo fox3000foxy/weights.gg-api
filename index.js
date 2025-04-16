@@ -136,7 +136,7 @@ async function generateImage(prompt, page, emitter, imageId) {
         }
 
         if(document.querySelector(".break-words")) {
-            prompt = document.querySelector(".break-words").innerText + " " + prompt;
+            prompt = document.querySelector(".break-words").innerText + ", " + prompt;
             console.log("Prompt updated to:", prompt);
         }
 
