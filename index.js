@@ -131,23 +131,32 @@ async function generateImage(prompt, page, emitter, imageId) {
             return document.querySelector(selector);
         }
 
+        if(document.querySelector(".break-words")) {
+            prompt = document.querySelector(".break-words").innerText + " " + prompt;
+            console.log("Prompt updated to:", prompt);
+        }
+
         // Focus on the image input
-        const imageInput = await waitForAndQuerySelector("#imagegen-input");
+        const imageInput = document.querySelector("#imagegen-input");
         imageInput.innerText = prompt;
         imageInput.dispatchEvent(new Event("input", { bubbles: true }));
         imageInput.dispatchEvent(new Event("change", { bubbles: true }));
         imageInput.dispatchEvent(new Event("blur", { bubbles: true }));
 
+        console.log("Image generation input focused and prompt set:", prompt);
+
+        // return;
         // Click the generate button
         const generateButton = await waitForAndQuerySelector("body > div.MuiModal-root.css-1sucic7 > div.flex.outline-none.flex-col.items-center.gap-4.w-full.md\\:w-\\[400px\\].min-h-\\[200px\\].absolute.bottom-0.md\\:bottom-auto.md\\:top-1\\/2.md\\:left-1\\/2.md\\:-translate-x-1\\/2.md\\:-translate-y-1\\/2.px-6.py-6.rounded-t-3xl.md\\:rounded-3xl.shadow-lg.bg-white.dark\\:bg-neutral-800.max-h-screen.overflow-y-auto.overflow-x-hidden.pb-\\[var\\(--is-mobile-pb\\)\\].md\\:pb-\\[var\\(--is-mobile-pb-md\\)\\] > button.flex.w-full.items-center.justify-center.gap-2.rounded-lg.bg-black.px-3.py-1.font-bold.text-white.hover-scale");
         generateButton.click();
 
-        let oldPreview = null;
         let generatedImageElement = document.querySelector('img[alt="Generated Image"]');
         while (generatedImageElement && generatedImageElement.src) {
             await sleepBrowser(10);
             generatedImageElement = document.querySelector('img[alt="Generated Image"]');
         }
+
+        let oldPreview = null;
 
         while (!generatedImageElement || !generatedImageElement.src) {
             console.log("Image not generated yet, waiting...");
