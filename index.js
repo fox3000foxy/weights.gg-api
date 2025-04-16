@@ -23,10 +23,14 @@ const IMAGE_DIR = path.join(__dirname, 'images');
 // --- Globals ---
 let page = null; // Single page instance
 let oldLoraName = null; // Variable to hold the previous Lora name
+let loraSearchPage = null;
 
 // --- Queue System ---
 let jobQueue = [];
 let processing = false;
+
+let loraSearchQueue = []; // New queue for LORA searches
+let loraSearchProcessing = false;
 
 // --- Status Dictionary ---
 let imageStatuses = {}; // Dictionary to hold status of each image
@@ -203,28 +207,28 @@ async function addLora(loraName, page) {
     await page.type('[id^="«r"]', decodeURIComponent(loraName));
     await page.keyboard.press('Enter');
 
-        console.log("Lora name entered")
+    console.log("Lora name entered")
 
-        await page.evaluate(async () => {
-            const sleepBrowser = ms => new Promise(r => setTimeout(r, ms));
+    await page.evaluate(async () => {
+        const sleepBrowser = ms => new Promise(r => setTimeout(r, ms));
 
-            // Helper function to wait for and query a selector
-            async function waitForAndQuerySelector(selector, timeout = 10000) {
-                const startTime = Date.now();
-                while (!document.querySelector(selector)) {
-                    if (Date.now() - startTime > timeout) {
-                        throw new Error(`Timeout waiting for selector: ${selector}`);
-                    }
-                    console.log(`${selector} not loaded yet, waiting...`);
-                    await sleepBrowser(10);
+        // Helper function to wait for and query a selector
+        async function waitForAndQuerySelector(selector, timeout = 10000) {
+            const startTime = Date.now();
+            while (!document.querySelector(selector)) {
+                if (Date.now() - startTime > timeout) {
+                    throw new Error(`Timeout waiting for selector: ${selector}`);
                 }
-                return document.querySelector(selector);
+                console.log(`${selector} not loaded yet, waiting...`);
+                await sleepBrowser(10);
             }
-            const loraSelection = await waitForAndQuerySelector("div.flex.outline-none.flex-col.items-center.gap-4.w-full.md\\:w-\\[400px\\].min-h-\\[200px\\].absolute.bottom-0.md\\:bottom-auto.md\\:top-1\\/2.md\\:left-1\\/2.md\\:-translate-x-1\\/2.md\\:-translate-y-1\\/2.px-6.py-6.rounded-t-3xl.md\\:rounded-3xl.shadow-lg.bg-white.dark\\:bg-neutral-800.max-h-screen.overflow-y-auto.overflow-x-hidden.pb-\\[var\\(--is-mobile-pb\\)\\].md\\:pb-\\[var\\(--is-mobile-pb-md\\)\\] > div > div.h-96.w-full.overflow-hidden.rounded-2xl.bg-gray-100.dark\\:bg-neutral-900 > div > div > div:nth-child(2) > div > div > div")
-            loraSelection.click()
-            await waitForAndQuerySelector("#imagegen-input");
-        });
-        console.log("Lora selected")
+            return document.querySelector(selector);
+        }
+        const loraSelection = await waitForAndQuerySelector("div.flex.outline-none.flex-col.items-center.gap-4.w-full.md\\:w-\\[400px\\].min-h-\\[200px\\].absolute.bottom-0.md\\:bottom-auto.md\\:top-1\\/2.md\\:left-1\\/2.md\\:-translate-x-1\\/2.md\\:-translate-y-1\\/2.px-6.py-6.rounded-t-3xl.md\\:rounded-3xl.shadow-lg.bg-white.dark\\:bg-neutral-800.max-h-screen.overflow-y-auto.overflow-x-hidden.pb-\\[var\\(--is-mobile-pb\\)\\].md\\:pb-\\[var\\(--is-mobile-pb-md\\)\\] > div > div.h-96.w-full.overflow-hidden.rounded-2xl.bg-gray-100.dark\\:bg-neutral-900 > div > div > div:nth-child(2) > div > div > div")
+        loraSelection.click()
+        await waitForAndQuerySelector("#imagegen-input");
+    });
+    console.log("Lora selected")
 }
 
 async function removeLora(page) {
@@ -260,6 +264,43 @@ async function createImageJob(prompt, page, emitter, imageId) {
         processing = false;
         processQueue();
     }
+}
+
+async function searchLoras(loraName, page) {
+    await page.evaluate(async (loraName) => {
+        const sleepBrowser = ms => new Promise(r => setTimeout(r, ms));
+        const loraButton = document.querySelector("button.hover-scale.flex.h-7.w-full.items-center.gap-2.rounded-lg.bg-gray-100.px-2");
+        loraButton.click();
+        await sleepBrowser(500);
+    }, loraName);
+    await page.type('[id^="«r"]', decodeURIComponent(loraName));
+    await page.keyboard.press('Enter');
+
+    const loraList = await page.evaluate(async (loraName) => {
+        const sleepBrowser = ms => new Promise(r => setTimeout(r, ms));
+        async function waitForAndQuerySelector(selector) {
+            while (!document.querySelector(selector)) {
+                console.log(`${selector} not loaded yet, waiting...`);
+                await sleepBrowser(10);
+            }
+            return document.querySelector(selector);
+        }
+        await waitForAndQuerySelector("div.flex.outline-none.flex-col.items-center.gap-4.w-full.md\\:w-\\[400px\\].min-h-\\[200px\\].absolute.bottom-0.md\\:bottom-auto.md\\:top-1\\/2.md\\:left-1\\/2.md\\:-translate-x-1\\/2.md\\:-translate-y-1\\/2.px-6.py-6.rounded-t-3xl.md\\:rounded-3xl.shadow-lg.bg-white.dark\\:bg-neutral-800.max-h-screen.overflow-y-auto.overflow-x-hidden.pb-\\[var\\(--is-mobile-pb\\)\\].md\\:pb-\\[var\\(--is-mobile-pb-md\\)\\] > div > div.h-96.w-full.overflow-hidden.rounded-2xl.bg-gray-100.dark\\:bg-neutral-900 > div > div > div:nth-child(2) > div > div > div")
+        await sleepBrowser(500);
+        const loraListElement = await waitForAndQuerySelector('div[data-testid="virtuoso-item-list"]')
+        console.log("List loaded")
+
+        const loraList = [...loraListElement.children].map(u=>{
+            return {
+                name: u.querySelector("h3").innerText.trim(),
+                image: u.querySelector("img").src,
+                tags: [...u.querySelectorAll("div > div > .rounded-md")].map(u=>u?.innerText.trim()).filter(u=>u),
+            }
+        })
+        return loraList;
+    })
+    await page.keyboard.press('Escape');
+    return loraList;
 }
 
 // --- Queue Processing Function ---
@@ -309,6 +350,36 @@ async function processQueue() {
     }
 }
 
+async function processLoraSearchQueue() {
+    if (loraSearchProcessing || loraSearchQueue.length === 0) return;
+
+    const job = loraSearchQueue.shift();
+    const { query, res, searchId } = job;
+
+    loraSearchProcessing = true;
+
+    try {
+        // Ensure the Lora search page is available
+        if (!loraSearchPage) {
+            console.log("Lora search page not ready, requeuing...");
+            loraSearchQueue.unshift(job); // Re-add the job to the front of the queue
+            loraSearchProcessing = false;
+            setTimeout(processLoraSearchQueue, 5000); // Try again after 5 seconds
+            return;
+        }
+
+        // Perform the Lora search
+        const loraList = await searchLoras(query, loraSearchPage);
+        res.send(loraList); // Send the results back to the client
+    } catch (error) {
+        console.error("Error searching for Lora:", error);
+        res.status(500).send({ error: "Failed to search for Lora." });
+    } finally {
+        loraSearchProcessing = false;
+        processLoraSearchQueue(); // Process the next item in the queue
+    }
+}
+
 // --- Express Routes ---
 const setupExpressRoutes = (emitter) => {
     const app = express();
@@ -327,6 +398,7 @@ const setupExpressRoutes = (emitter) => {
     };
 
     app.use('/status', apiKeyCheck);
+    app.use('/search-loras', apiKeyCheck);
     app.use('/generateImage', apiKeyCheck);
 
     app.get('/health', (req, res) => res.send({ status: 'OK' }));
@@ -336,6 +408,20 @@ const setupExpressRoutes = (emitter) => {
         const status = imageStatuses[imageId] || { status: 'NOT_FOUND' };
         res.send(status);
     });
+
+    app.get('/search-loras', async (req, res) => {
+        const { query } = req.query;
+        if (!query) {
+            return res.status(400).send({ error: "Query parameter is required." });
+        }
+
+        const loraName = decodeURIComponent(query);
+        console.log("Searching for Lora:", loraName);
+
+        const searchId = generateImageId(); // Generate a unique ID for the search
+        loraSearchQueue.push({ query: loraName, res, searchId }); // Add the search to the queue
+        processLoraSearchQueue(); // Start processing the queue
+    })
 
     app.get('/generateImage', async (req, res) => {
          if (jobQueue.length >= MAX_QUEUE_SIZE) {
@@ -368,6 +454,11 @@ async function main(callback) {
     const { browser, page: newPage } = await connect({ headless: false, args: [], customConfig: {}, turnstile: true, connectOption: {}, disableXvfb: false, ignoreAllFlags: false });
     page = newPage;
     await onStart(page);
+
+    // Create a second page for Lora searches
+    const { page: newLoraSearchPage } = await connect({ headless: false, args: [], customConfig: {}, turnstile: true, connectOption: {}, disableXvfb: false, ignoreAllFlags: false });
+    loraSearchPage = newLoraSearchPage;
+    await onStart(loraSearchPage);
 
     const emitter = new events.EventEmitter();
 

@@ -15,6 +15,14 @@ This bot automates image generation on Weights.gg using Puppeteer. It manages a 
 ## Endpoints
 
 -   `/health`: Checks if the server is running.
+-   `/search-loras`: Searches available LoRA models.
+    -   **Query Parameters**:
+        -   `query` (required): The search query for LoRAs (URL encoded).
+    -   **Response**:
+        -   Returns a JSON array of LoRA objects, each containing:
+            -   `name`: The name of the LoRA.
+            -   `image`: The URL of the LoRA's image.
+            -   `tags`: An array of tags associated with the LoRA.
 -   `/status/:imageId`: Retrieves the status of a specific image generation job.
     -   **Path Parameters**:
         -   `imageId` (required): The ID of the image to retrieve the status for.
@@ -33,4 +41,3 @@ This bot automates image generation on Weights.gg using Puppeteer. It manages a 
         -   `imageId`: Unique identifier for the image generation job.
         -   `imageUrl`: URL of the generated image.
         -   `statusUrl`: URL to check the status of the image generation job.
-
