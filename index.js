@@ -14,6 +14,7 @@ const API_URL = process.env.API_URL;
 const API_KEY = process.env.API_KEY;
 const WEIGHTS_GG_COOKIE = process.env.WEIGHTS_GG_COOKIE;
 const PORT = 3000;
+const MAX_QUEUE_SIZE = 10;
 
 // --- Constants ---
 const IMAGE_WIDTH = 300; // Width for preview images
@@ -59,6 +60,7 @@ const saveBase64Image = async (base64Data, imageId, isFinal = false) => {
         } else {
             await sharp(buffer)
                 .resize({ width: IMAGE_WIDTH })
+                .jpeg({ quality: 80 }) // Adjust quality as needed
                 .toFile(filePath);
             console.log(`Preview image saved to ${filePath}`);
         }
@@ -80,17 +82,27 @@ const updateImageStatus = (imageId, status, error = null) => {
 const sleepBrowser = ms => new Promise(r => setTimeout(r, ms));
 
 // Helper function to wait for and query a selector
-async function waitForAndQuerySelector(page, selector, timeout = 10000) {
+async function waitForAndQuerySelector(page, selector, timeout = 10000, delay = 50) {
     const startTime = Date.now();
     while (!await page.$(selector)) {
         if (Date.now() - startTime > timeout) {
             throw new Error(`Timeout waiting for selector: ${selector}`);
         }
         console.log(`${selector} not loaded yet, waiting...`);
-        await sleepBrowser(10);
+        await sleepBrowser(delay);
     }
+    await sleepBrowser(50); // Add a small delay after finding the selector
     return await page.$(selector);
 }
+
+const debounce = (func, delay) => {
+    let timeout;
+    return function(...args) {
+        const context = this;
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(context, args), delay);
+    };
+};
 
 // --- Puppeteer Functions ---
 async function onStart(page) {
@@ -317,6 +329,10 @@ const setupExpressRoutes = (emitter) => {
     });
 
     app.get('/generateImage', async (req, res) => {
+         if (jobQueue.length >= MAX_QUEUE_SIZE) {
+            return res.status(429).send({ error: "Server is busy. Please try again later." });
+        }
+
         const { prompt, loraName } = req.query;
 
         if (!prompt) {
@@ -347,7 +363,7 @@ async function main(callback) {
     const emitter = new events.EventEmitter();
 
     // Expose function for preview updates
-    await page.exposeFunction('handlePreviewUpdate', async (data) => {
+    const handlePreviewUpdate = async (data) => {
         console.log("Image preview updated in main process");
         emitter.emit('previewUpdate', data);
         try {
@@ -363,7 +379,11 @@ async function main(callback) {
             console.error("Error downloading image:", error);
             updateImageStatus(data.imageId, 'FAILED', error.message);
         }
-    });
+    };
+
+    const debouncedHandlePreviewUpdate = debounce(handlePreviewUpdate, 200); // Adjust the delay as needed
+
+    await page.exposeFunction('handlePreviewUpdate', debouncedHandlePreviewUpdate);
 
     await page.evaluate(() => {
         window.addEventListener('previewUpdate', (event) => {
