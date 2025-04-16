@@ -9,38 +9,38 @@ const bodyParser = require('body-parser');
 const sharp = require('sharp');
 require('dotenv').config();
 
-// Create the 'images' directory if it doesn't exist
-const imagesDir = path.join(__dirname, 'images');
-if (!fs.existsSync(imagesDir)) {
-    fs.mkdirSync(imagesDir);
-    console.log(`Directory "${imagesDir}" created.`);
-}
+// --- Configuration ---
+const API_URL = process.env.API_URL;
+const API_KEY = process.env.API_KEY;
+const WEIGHTS_GG_COOKIE = process.env.WEIGHTS_GG_COOKIE;
+const PORT = 3000;
 
+// --- Constants ---
+const IMAGE_WIDTH = 300; // Width for preview images
+const IMAGE_DIR = path.join(__dirname, 'images');
+
+// --- Globals ---
 let page = null; // Single page instance
-let WEIGHTS_GG_COOKIE = process.env.WEIGHTS_GG_COOKIE; // Cookie for weights.gg
-
-let oldLoraname = null; // Variable to hold the previous Lora name
+let oldLoraName = null; // Variable to hold the previous Lora name
 
 // --- Queue System ---
 let jobQueue = [];
 let processing = false;
+
+// --- Status Dictionary ---
+let imageStatuses = {}; // Dictionary to hold status of each image
 
 // --- Utility Functions ---
 const generateImageId = () => crypto.randomBytes(16).toString("hex");
 
 const downloadImage = (url, imageId) => {
     return new Promise((resolve, reject) => {
-        const filePath = path.join(__dirname, 'images', `${imageId}.jpg`);
+        const filePath = path.join(IMAGE_DIR, `${imageId}.jpg`);
         const file = fs.createWriteStream(filePath);
 
         https.get(url, (response) => {
             response.pipe(file);
-
-            file.on('finish', () => {
-                file.close(() => {
-                    resolve(filePath);
-                });
-            });
+            file.on('finish', () => file.close(() => resolve(filePath)));
         }).on('error', (err) => {
             fs.unlink(filePath, () => reject(err)); // Delete the file if an error occurs
         });
@@ -50,16 +50,15 @@ const downloadImage = (url, imageId) => {
 const saveBase64Image = async (base64Data, imageId, isFinal = false) => {
     const buffer = Buffer.from(base64Data, 'base64');
     const fileNameSuffix = isFinal ? '-final' : '';
-    const filePath = path.join(__dirname, 'images', `${imageId}${fileNameSuffix}.jpg`);
+    const filePath = path.join(IMAGE_DIR, `${imageId}${fileNameSuffix}.jpg`);
+
     try {
         if (isFinal) {
-            // Save the final image without resizing
             fs.writeFileSync(filePath, buffer);
             console.log(`Final image saved to ${filePath}`);
         } else {
-            // Resize the image using sharp
             await sharp(buffer)
-                .resize({ width: 300 }) // Adjust the width as needed
+                .resize({ width: IMAGE_WIDTH })
                 .toFile(filePath);
             console.log(`Preview image saved to ${filePath}`);
         }
@@ -69,6 +68,29 @@ const saveBase64Image = async (base64Data, imageId, isFinal = false) => {
         throw error;
     }
 };
+
+const updateImageStatus = (imageId, status, error = null) => {
+    imageStatuses[imageId] = {
+        ...imageStatuses[imageId],
+        status,
+        ...(error ? { error } : {}),
+    };
+};
+
+const sleepBrowser = ms => new Promise(r => setTimeout(r, ms));
+
+// Helper function to wait for and query a selector
+async function waitForAndQuerySelector(page, selector, timeout = 10000) {
+    const startTime = Date.now();
+    while (!await page.$(selector)) {
+        if (Date.now() - startTime > timeout) {
+            throw new Error(`Timeout waiting for selector: ${selector}`);
+        }
+        console.log(`${selector} not loaded yet, waiting...`);
+        await sleepBrowser(10);
+    }
+    return await page.$(selector);
+}
 
 // --- Puppeteer Functions ---
 async function onStart(page) {
@@ -193,13 +215,14 @@ async function removeLora(page) {
 
 async function handleImageResult(result, imageId) {
     try {
-        if (result.url.startsWith('data:image')) {
-            await saveBase64Image(result.url.replace(/^data:image\/(png|jpeg|jpg);base64,/, ''), imageId, true);
-        } else {
-            await downloadImage(result.url, imageId);
-        }
+        const base64Data = result.url.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
+        const filePath = result.url.startsWith('data:image')
+            ? await saveBase64Image(base64Data, imageId, true)
+            : await downloadImage(result.url, imageId);
+        console.log(`Final image saved to ${filePath}`);
     } catch (error) {
-        console.error("Error downloading final image:", error);
+        console.error("Error handling final image:", error);
+        updateImageStatus(imageId, 'FAILED', error.message);
     }
 }
 
@@ -218,27 +241,9 @@ async function createImageJob(prompt, page, emitter, imageId) {
     }
 }
 
-// --- Status Dictionary ---
-let imageStatuses = {}; // Dictionary to hold status of each image
-
-// --- Configuration ---
-const API_URL = process.env.API_URL; // Default to localhost if not set
-const API_KEY = process.env.API_KEY; // Replace with your actual API key
-
-// --- Helper function to update image status ---
-const updateImageStatus = (imageId, status, error = null) => {
-    imageStatuses[imageId] = {
-        ...imageStatuses[imageId], // Keep existing properties
-        status: status,
-        ...(error ? { error: error } : {}), // Add error only if it exists
-    };
-};
-
 // --- Queue Processing Function ---
 async function processQueue() {
-    if (processing || jobQueue.length === 0) {
-        return;
-    }
+    if (processing || jobQueue.length === 0) return;
 
     const job = jobQueue.shift();
     const { prompt, loraName, imageId, res, emitter } = job;
@@ -246,37 +251,28 @@ async function processQueue() {
     if (!page) {
         jobQueue.unshift(job);
         console.log("Page not ready, waiting 5 seconds...");
-        setTimeout(processQueue, 5000); // Check again in 5 seconds
+        setTimeout(processQueue, 5000);
         return;
     }
 
     processing = true;
-
-    imageStatuses[imageId] = {
-        status: 'STARTING',
-        prompt: decodeURIComponent(prompt),
-        startTime: new Date(),
-    };
+    updateImageStatus(imageId, 'STARTING');
 
     try {
         if (loraName) {
-            if (oldLoraname !== loraName) {
-                if (oldLoraname) {
-                    await removeLora(page);
-                }
+            if (oldLoraName !== loraName) {
+                if (oldLoraName) await removeLora(page);
                 await addLora(loraName, page);
-                oldLoraname = loraName;
+                oldLoraName = loraName;
             }
-        } else {
-            if (oldLoraname) {
-                await removeLora(page);
-                oldLoraname = null;
-            }
+        } else if (oldLoraName) {
+            await removeLora(page);
+            oldLoraName = null;
         }
 
         res.send({
             success: true,
-            imageId: imageId,
+            imageId,
             imageUrl: `${API_URL}/${imageId}.jpg`,
             statusUrl: `${API_URL}/status/${imageId}`,
         });
@@ -286,13 +282,14 @@ async function processQueue() {
         console.error("Error generating image:", error);
         updateImageStatus(imageId, 'FAILED', error.message);
         res.status(500).send({ success: false, error: "Failed to generate image." });
+    } finally {
         processing = false;
-        processQueue(); // Process next item in queue
+        processQueue();
     }
 }
 
 // --- Express Routes ---
-const setupExpressRoutes = (emitter, port) => {
+const setupExpressRoutes = (emitter) => {
     const app = express();
 
     app.use(bodyParser.json());
@@ -301,21 +298,17 @@ const setupExpressRoutes = (emitter, port) => {
 
     // Middleware to check API key
     const apiKeyCheck = (req, res, next) => {
-        const apiKey = req.headers['x-api-key']; // Or req.query.apiKey if you prefer
-
+        const apiKey = req.headers['x-api-key'];
         if (!apiKey || apiKey !== API_KEY) {
             return res.status(401).send({ error: 'Unauthorized: Missing or invalid API key' });
         }
         next();
     };
 
-    // Apply the API key check middleware to the routes that require authentication
     app.use('/status', apiKeyCheck);
     app.use('/generateImage', apiKeyCheck);
 
-    app.get('/health', (req, res) => {
-        res.send({ status: 'OK' });
-    });
+    app.get('/health', (req, res) => res.send({ status: 'OK' }));
 
     app.get('/status/:imageId', (req, res) => {
         const { imageId } = req.params;
@@ -331,22 +324,9 @@ const setupExpressRoutes = (emitter, port) => {
         }
 
         const imageId = generateImageId();
-
-        // Add the job to the queue
-        jobQueue.push({
-            prompt: prompt,
-            loraName: loraName,
-            imageId: imageId,
-            res: res,
-            emitter: emitter,
-        });
-
-        // Start processing the queue if it's not already running
+        const job = { prompt, loraName, imageId, res, emitter };
+        jobQueue.push(job);
         processQueue();
-    });
-
-    app.listen(port, () => {
-        console.log(`Server is running at ${API_URL}:${port}`);
     });
 
     return app;
@@ -354,6 +334,12 @@ const setupExpressRoutes = (emitter, port) => {
 
 // --- Main Function ---
 async function main(callback) {
+    // Create the 'images' directory if it doesn't exist
+    if (!fs.existsSync(IMAGE_DIR)) {
+        fs.mkdirSync(IMAGE_DIR);
+        console.log(`Directory "${IMAGE_DIR}" created.`);
+    }
+
     const { browser, page: newPage } = await connect({ headless: false, args: [], customConfig: {}, turnstile: true, connectOption: {}, disableXvfb: false, ignoreAllFlags: false });
     page = newPage;
     await onStart(page);
@@ -365,16 +351,17 @@ async function main(callback) {
         console.log("Image preview updated in main process");
         emitter.emit('previewUpdate', data);
         try {
-            if (data.url.startsWith('data:image')) {
-                await saveBase64Image(data.url.replace(/^data:image\/(png|jpeg|jpg);base64,/, ''), data.imageId);
-            } else {
-                const filePath = await downloadImage(data.url, data.imageId);
-                console.log(`Image preview saved to ${filePath}`);
-            }
+            const base64Data = data.url.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
+            const filePath = data.url.startsWith('data:image')
+                ? await saveBase64Image(base64Data, data.imageId)
+                : await downloadImage(data.url, data.imageId);
+
+            console.log(`Image preview saved to ${filePath}`);
             updateImageStatus(data.imageId, 'PENDING', null);
             imageStatuses[data.imageId].lastModifiedDate = new Date().getTime();
         } catch (error) {
             console.error("Error downloading image:", error);
+            updateImageStatus(data.imageId, 'FAILED', error.message);
         }
     });
 
@@ -384,21 +371,22 @@ async function main(callback) {
         });
     });
 
-    // --- Express App Setup ---
-    const port = 3000;
-    const app = setupExpressRoutes(emitter, port);
+    const app = setupExpressRoutes(emitter);
+    app.listen(PORT, () => {
+        console.log(`Server is running at ${API_URL}:${PORT}`);
+    });
 
     callback(page, emitter);
 }
 
+// --- Initialize ---
 main((page, emitter) => {
-    // Optional callback after main setup is complete
     console.log(`One instance is ready.`);
 });
 
+// --- Error Handling ---
 process.on('uncaughtException', (error) => {
     console.error('🚨 Uncaught Exception: Something went wrong!', error);
-    client.metrics.errors++;
 });
 
 process.on('unhandledRejection', (reason, promise) => {
