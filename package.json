@@ -1,0 +1,30 @@
+{
+  "name": "weights-selenium",
+  "version": "1.0.0",
+  "description": "A project for image processing and Lora search using Puppeteer and Express.",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "dev": "ts-node-dev src/index.ts",
+    "build": "tsc",
+    "test": "jest"
+  },
+  "dependencies": {
+    "dotenv": "^16.5.0",
+    "express": "^4.21.2",
+    "puppeteer": "^10.0.0",
+    "puppeteer-real-browser": "^1.4.2",
+    "rebrowser-puppeteer-core": "^23.10.3",
+    "sharp": "^0.34.1",
+    "typescript": "^4.9.5"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.1",
+    "@types/jest": "^27.0.0",
+    "@types/node": "^14.0.0",
+    "jest": "^27.0.0",
+    "ts-node": "^10.0.0"
+  },
+  "author": "fox3000foxy",
+  "license": "MIT"
+}
