@@ -478,12 +478,38 @@ async function processLoraSearchQueue() {
             return;
         }
 
-        // Perform the Lora search
-        const loraList = await searchLoras(query, loraSearchPage);
-        // Cache the result
-        loraSearchCache.set(query, loraList);
-        saveLoraCache(); // Save the cache after updating it
-        res.send(loraList); // Send the results back to the client
+        // Set a timeout for the Lora search
+        let timeoutId;
+        const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => {
+                reject(new Error("Lora search timed out"));
+            }, 5000); // 5 seconds timeout
+        });
+
+        // Perform the Lora search with a timeout
+        const loraListPromise = searchLoras(query, loraSearchPage);
+
+        try {
+            const loraList = await Promise.race([loraListPromise, timeoutPromise]);
+
+            clearTimeout(timeoutId); // Clear the timeout if the search completes in time
+
+            // Cache the result
+            loraSearchCache.set(query, loraList);
+            saveLoraCache(); // Save the cache after updating it
+            res.send(loraList); // Send the results back to the client
+        } catch (error) {
+            console.error("Error searching for Lora:", error);
+
+            // Restart the page and click the button
+            console.log("Restarting the page and clicking the button");
+            await loraSearchPage.close();
+            const { page: newLoraSearchPage } = await connect({ headless: false, args: [], customConfig: {}, turnstile: true, connectOption: {}, disableXvfb: false, ignoreAllFlags: false });
+            loraSearchPage = newLoraSearchPage;
+            await onStart(loraSearchPage);
+
+            res.send([]); // Send an empty array back to the client
+        }
     } catch (error) {
         console.error("Error searching for Lora:", error);
         res.status(500).send({ error: "Failed to search for Lora." });
