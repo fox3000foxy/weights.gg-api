@@ -638,14 +638,20 @@ async function main(callback) {
         console.log(`Directory "${IMAGE_DIR}" created.`);
     }
 
-    const { browser, page: newPage } = await connect({ headless: false, args: [], customConfig: {}, turnstile: true, connectOption: {}, disableXvfb: false, ignoreAllFlags: false });
+    const [
+        { page: newPage },
+        { page: newLoraSearchPage }
+    ] = await Promise.all([
+        connect({ headless: false, args: [], customConfig: {}, turnstile: true, connectOption: {}, disableXvfb: false, ignoreAllFlags: false }),
+        connect({ headless: false, args: [], customConfig: {}, turnstile: true, connectOption: {}, disableXvfb: false, ignoreAllFlags: false })
+    ]);
     generationPage = newPage;
-    await onStart(generationPage);
-
-    // Create a second page for Lora searches
-    const { page: newLoraSearchPage } = await connect({ headless: false, args: [], customConfig: {}, turnstile: true, connectOption: {}, disableXvfb: false, ignoreAllFlags: false });
     loraSearchPage = newLoraSearchPage;
-    await onStart(loraSearchPage);
+
+    await Promise.all([
+        onStart(generationPage),
+        onStart(loraSearchPage)
+    ]);
 
     const emitter = new events.EventEmitter();
 
