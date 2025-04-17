@@ -8,6 +8,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const sharp = require('sharp');
 const process = require('process');
+const { url } = require("inspector");
 require('dotenv').config();
 
 // --- Configuration ---
@@ -111,11 +112,18 @@ const debounce = (func, delay) => {
 
 // --- Puppeteer Functions ---
 async function onStart(page) {
+    await page.goto("https://weights.gg/create");
+
+    await page.setCookie({
+        name: 'next-auth.session-token',
+        value: WEIGHTS_GG_COOKIE,
+        secure: true,
+        httpOnly: false
+    });
+
     await page.goto("https://weights.gg/create", { waitUntil: "load" });
-    await page.evaluate((cookie) => {
-        document.cookie = cookie;
-    }, WEIGHTS_GG_COOKIE);
-    await page.reload({ waitUntil: "load" });
+
+
     await page.evaluate(() => {
         document.querySelector("#__next > main > div > div > div > div.my-4.flex.w-full.flex-col.gap-8 > div:nth-child(4) > div:nth-child(1) > div.flex.w-full.gap-2 > button").click()
     });
