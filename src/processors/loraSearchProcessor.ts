@@ -1,8 +1,8 @@
 // filepath: weights-selenium/src/processors/loraSearchProcessor.ts
 import { Page } from 'rebrowser-puppeteer-core';
-import { LoraResult, LoraService } from '../services/loraService';
-import { Queue } from '../services/queueService';
+import { LoraService } from '../services/loraService';
 import { Response } from 'express';
+import { LoraResult } from 'types';
 
 interface LoraSearchJob {
     query: string;

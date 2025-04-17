@@ -3,7 +3,7 @@ import { PuppeteerService } from '../services/puppeteerService';
 import { ImageService } from '../services/imageService';
 import { LoraService } from '../services/loraService';
 import { StatusService } from '../services/statusService';
-import { Queue, QueueItem } from '../services/queueService';
+import { Queue } from '../services/queueService';
 import { Config } from '../config/index';
 import { generateImage } from '../services/imageGeneration';
 import { Page } from 'rebrowser-puppeteer-core';

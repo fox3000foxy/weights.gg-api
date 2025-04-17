@@ -1,10 +1,5 @@
 import { Page } from "rebrowser-puppeteer-core";
-interface QueueItem {
-    id: string;
-    data: any;
-}
-
-type ProcessorFunction = (item: QueueItem, page: Page) => Promise<void>;
+import { QueueItem, ProcessorFunction } from "../types";
 
 export class Queue {
     public queue: QueueItem[];

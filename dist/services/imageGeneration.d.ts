@@ -1,10 +1,6 @@
 /// <reference types="node" />
 import { Page } from 'rebrowser-puppeteer-core';
 import { EventEmitter } from 'events';
-interface ImageGenerationResult {
-    url?: string;
-    imageId?: string;
-    error?: string;
-}
+import { ImageGenerationResult } from 'types';
 export declare function generateImage(prompt: string, page: Page, emitter: EventEmitter, imageId: string): Promise<ImageGenerationResult>;
 export default generateImage;

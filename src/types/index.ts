@@ -1,6 +1,8 @@
 // src/types/index.ts
 
 import { EventEmitter } from 'events';
+import { Page } from 'rebrowser-puppeteer-core';
+import { Response } from 'express';
 
 export interface Job {
     prompt: string;
@@ -31,3 +33,53 @@ export const EVENT_TYPES = {
     STATUS_UPDATE: 'status:update'
 } as const;
 
+export interface ImageGenerationResult {
+    url?: string;
+    imageId?: string;
+    error?: string;
+}
+
+export interface ConnectOptions {
+    headless: boolean;
+    args: string[];
+    customConfig: Record<string, unknown>;
+    turnstile: boolean;
+    connectOption: Record<string, unknown>;
+    disableXvfb: boolean;
+    ignoreAllFlags: boolean;
+}
+
+export interface GenerateImageJob {
+    prompt: string;
+    loraName?: string;
+    imageId: string;
+    res: Response;
+    emitter: EventEmitter;
+}
+
+export interface SearchLoraJob {
+    query: string;
+    res: Response;
+    searchId: string;
+    id: string;
+    data: any;
+}
+
+export interface QueueItem {
+    id: string;
+    data: any;
+}
+
+export interface LoraResult {
+    name: string;
+    image: string;
+    tags: string[];
+}
+
+export interface LoraResult {
+    name: string;
+    image: string;
+    tags: string[];
+}
+
+export type ProcessorFunction = (item: QueueItem, page: Page) => Promise<void>;

@@ -1,20 +1,6 @@
 import { connect } from 'puppeteer-real-browser';
 import type { Page } from "rebrowser-puppeteer-core";
-
-interface ConnectOptions {
-    headless: boolean;
-    args: string[];
-    customConfig: Record<string, unknown>;
-    turnstile: boolean;
-    connectOption: Record<string, unknown>;
-    disableXvfb: boolean;
-    ignoreAllFlags: boolean;
-}
-
-interface BrowserConnection {
-    page: Page;
-    browser: any; // Vous pouvez remplacer 'any' par le type correct si disponible dans puppeteer-real-browser
-}
+import type { ConnectOptions } from '../types';
 
 export class PuppeteerService {
     public generationPage: Page | null;

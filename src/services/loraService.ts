@@ -1,13 +1,7 @@
 import * as fs from 'fs';
-import * as path from 'path';
 import { Page } from 'rebrowser-puppeteer-core';
 import { Config } from '../config';
-
-export interface LoraResult {
-    name: string;
-    image: string;
-    tags: string[];
-}
+import { LoraResult } from 'types';
 
 export class LoraService {
     public config: Config;

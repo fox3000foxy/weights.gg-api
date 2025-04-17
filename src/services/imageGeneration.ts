@@ -1,11 +1,6 @@
 import { Page } from 'rebrowser-puppeteer-core';
 import { EventEmitter } from 'events';
-
-interface ImageGenerationResult {
-    url?: string;
-    imageId?: string;
-    error?: string;
-}
+import { ImageGenerationResult } from 'types';
 
 export async function generateImage(
     prompt: string, 

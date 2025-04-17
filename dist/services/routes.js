@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.setupRoutes = void 0;
-const setupRoutes = (app, config, puppeteerService, imageService, loraService, statusService, imageQueue, loraSearchQueue, events) => {
+const setupRoutes = (app, config, puppeteerService, imageService, statusService, imageQueue, loraSearchQueue, events) => {
     const apiKeyCheck = (req, res, next) => {
         const apiKey = req.headers['x-api-key'];
         if (!apiKey || apiKey !== config.API_KEY) {
@@ -10,6 +10,7 @@ const setupRoutes = (app, config, puppeteerService, imageService, loraService, s
         }
         next();
     };
+    app.use(apiKeyCheck);
     app.get('/health', (req, res) => {
         res.send({ status: 'OK' });
     });

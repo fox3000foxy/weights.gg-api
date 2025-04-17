@@ -3,33 +3,16 @@ import { EventEmitter } from 'events';
 import { Config } from '../config';
 import { PuppeteerService } from './puppeteerService';
 import { ImageService } from './imageService';
-import { LoraService } from './loraService';
 import { StatusService } from './statusService';
-import { Queue, QueueItem } from './queueService';
+import { Queue } from './queueService';
 import { Page } from 'rebrowser-puppeteer-core';
-
-interface GenerateImageJob {
-    prompt: string;
-    loraName?: string;
-    imageId: string;
-    res: Response;
-    emitter: EventEmitter;
-}
-
-interface SearchLoraJob {
-    query: string;
-    res: Response;
-    searchId: string;
-    id: string;
-    data: any;
-}
+import { SearchLoraJob, GenerateImageJob } from '../types';
 
 export const setupRoutes = (
     app: Express,
     config: Config,
     puppeteerService: PuppeteerService,
     imageService: ImageService,
-    loraService: LoraService,
     statusService: StatusService,
     imageQueue: Queue,
     loraSearchQueue: Queue,

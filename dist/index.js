@@ -103,7 +103,7 @@ async function main() {
     });
     imageQueue.process(processImageJob, puppeteerService.generationPage);
     loraSearchQueue.process(processLoraSearchJob, puppeteerService.loraSearchPage);
-    (0, routes_1.default)(app, config_1.default, puppeteerService, imageService, loraService, statusService, imageQueue, loraSearchQueue, emitter);
+    (0, routes_1.default)(app, config_1.default, puppeteerService, imageService, statusService, imageQueue, loraSearchQueue, emitter);
     app.listen(config_1.default.PORT, () => {
         console.log(`Server is running on port ${config_1.default.PORT}`);
     });

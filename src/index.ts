@@ -97,7 +97,7 @@ async function main() {
     imageQueue.process(processImageJob, puppeteerService.generationPage);
     loraSearchQueue.process(processLoraSearchJob, puppeteerService.loraSearchPage);
 
-    setupRoutes(app, config, puppeteerService, imageService, loraService, statusService, imageQueue, loraSearchQueue, emitter);
+    setupRoutes(app, config, puppeteerService, imageService, statusService, imageQueue, loraSearchQueue, emitter);
 
     app.listen(config.PORT, () => {
         console.log(`Server is running on port ${config.PORT}`);
