@@ -52,8 +52,6 @@ export class PuppeteerService {
                 (button as HTMLElement).click();
             }
         });
-        
-        console.log("Context ready");
     }
 
     public async restartPage(page: Page, cookie: string): Promise<Page> {
