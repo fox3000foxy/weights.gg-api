@@ -1,4 +1,5 @@
-<svg fill="none" viewBox="0 0 400 2000" width="400" height="2000" xmlns="http://www.w3.org/2000/svg">
+<body>
+<svg fill="none" viewBox="0 0 600 2000" width="600" height="2000" xmlns="http://www.w3.org/2000/svg" style="background-color: #2d3436; border-radius: 10px; overflow: hidden; font-family: Arial, sans-serif;">
     <foreignObject width="100%" height="100%">
         <div xmlns="http://www.w3.org/1999/xhtml"  style="color: #ffffff;">
             <h1 style="color: #6c5ce7; border-bottom: 2px solid #6c5ce7; padding-bottom: 0.3em; margin-bottom: 0.5em;">Weights.gg Unofficial API</h1>
@@ -115,3 +116,4 @@
         </div>
     </foreignObject>
 </svg>
+</body>
