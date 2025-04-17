@@ -85,22 +85,6 @@ const updateImageStatus = (imageId, status, error = null) => {
     };
 };
 
-const sleepBrowser = ms => new Promise(r => setTimeout(r, ms));
-
-// Helper function to wait for and query a selector
-async function waitForAndQuerySelector(page, selector, timeout = 10000, delay = 50) {
-    const startTime = Date.now();
-    while (!await page.$(selector)) {
-        if (Date.now() - startTime > timeout) {
-            throw new Error(`Timeout waiting for selector: ${selector}`);
-        }
-        console.log(`${selector} not loaded yet, waiting...`);
-        await sleepBrowser(delay);
-    }
-    await sleepBrowser(50); // Add a small delay after finding the selector
-    return await page.$(selector);
-}
-
 const debounce = (func, delay) => {
     let timeout;
     return function(...args) {
