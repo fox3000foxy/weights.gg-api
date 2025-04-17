@@ -1,6 +1,5 @@
 // --- index.js ---
 const express = require('express');
-const bodyParser = require('body-parser');
 const events = require('events');
 const fs = require('fs');
 const path = require('path');
@@ -30,8 +29,8 @@ const loraSearchQueue = new Queue();
 // --- Express App ---
 const app = express();
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static(config.IMAGE_DIR));
 
 // --- Image Processing ---

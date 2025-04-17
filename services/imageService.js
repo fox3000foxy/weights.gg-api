@@ -1,4 +1,4 @@
-// --- imageService.js ---
+ // --- imageService.js ---
 const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
@@ -7,6 +7,8 @@ const https = require('https');
 class ImageService {
     constructor(config) {
         this.config = config;
+        this.cleanupIntervalId = null;
+        this.startCleanupInterval();
     }
 
     generateImageId() {
@@ -49,6 +51,60 @@ class ImageService {
             console.error("Error saving image:", error);
             throw error;
         }
+    }
+
+    cleanupOldImages() {
+        const IMAGE_DIR = this.config.IMAGE_DIR;
+        fs.readdir(IMAGE_DIR, (err, files) => {
+            if (err) {
+                console.error("Could not list the directory.", err);
+                return;
+            }
+
+            files.forEach(file => {
+                const filePath = path.join(IMAGE_DIR, file);
+
+                fs.stat(filePath, (err, stats) => {
+                    if (err) {
+                        console.error("Error reading file stats:", filePath, err);
+                        return;
+                    }
+
+                    const fileAge = Date.now() - stats.mtimeMs; // Modification time
+                    const tenMinutes = 10 * 60 * 1000;
+
+                    if (fileAge > tenMinutes) {
+                        fs.unlink(filePath, (err) => {
+                            if (err) {
+                                console.error("Error deleting file:", filePath, err);
+                            } else {
+                                console.log("File deleted:", filePath);
+                            }
+                        });
+                    }
+                });
+            });
+        });
+    }
+
+    startCleanupInterval() {
+        if (!this.cleanupIntervalId) {
+            this.cleanupOldImages();
+            this.cleanupIntervalId = setInterval(() => {
+                this.cleanupOldImages();
+            }, 60 * 1000); // Check every minute
+        }
+    }
+
+    stopCleanupInterval() {
+        if (this.cleanupIntervalId) {
+            clearInterval(this.cleanupIntervalId);
+            this.cleanupIntervalId = null;
+        }
+    }
+
+    runCleanupOnce() {
+        this.cleanupOldImages();
     }
 }
 

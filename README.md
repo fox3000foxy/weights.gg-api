@@ -14,7 +14,7 @@ This bot automates image generation on Weights.gg using Puppeteer. It manages a 
 
 ## Warning
 
-⚠️ Images expire within 6 hours. Please download them if you intend to keep them.
+⚠️ Images expire within 10 minutes. Please download them if you intend to keep them.
 
 ## Endpoints
 
