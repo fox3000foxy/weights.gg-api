@@ -39,7 +39,6 @@ class PuppeteerService {
                 button.click();
             }
         });
-        console.log("Context ready");
     }
     async restartPage(page, cookie) {
         try {

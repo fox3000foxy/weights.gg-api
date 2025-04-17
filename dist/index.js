@@ -80,10 +80,8 @@ async function main() {
     const emitter = new events.EventEmitter();
     // Add event listeners
     emitter.on(types_1.EVENT_TYPES.PREVIEW_UPDATE, (data) => {
-        console.log('Preview update received in main process');
     });
     emitter.on(types_1.EVENT_TYPES.STATUS_UPDATE, (data) => {
-        console.log('Status update received in main process:', data);
         statusService.updateImageStatus(data.imageId, data.status, data.error);
     });
     const previewHandler = new previewHandler_1.PreviewHandler(imageService, statusService, emitter);
@@ -96,7 +94,6 @@ async function main() {
     // Setup the event listener in the browser context
     await puppeteerService.generationPage.evaluate(() => {
         window.addEventListener('previewUpdate', (event) => {
-            console.log('Browser: Preview update event received:', event.detail);
             // @ts-ignore
             window.handlePreviewUpdate(event.detail);
         });

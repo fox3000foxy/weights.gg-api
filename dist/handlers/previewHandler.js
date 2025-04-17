@@ -8,7 +8,6 @@ class PreviewHandler {
         this.statusService = statusService;
         this.emitter = emitter;
         this.handlePreviewUpdate = async (data) => {
-            console.log("Image preview updated"); // Debug log
             if (!data || !data.url || !data.imageId) {
                 console.error("Invalid data received:", data);
                 return;
@@ -20,7 +19,6 @@ class PreviewHandler {
                 const filePath = data.url.startsWith('data:image')
                     ? await this.imageService.saveBase64Image(base64Data, data.imageId)
                     : await this.imageService.downloadImage(data.url, data.imageId);
-                console.log(`Image preview saved to ${filePath}`);
                 this.emitter.emit(types_1.EVENT_TYPES.STATUS_UPDATE, {
                     imageId: data.imageId,
                     status: 'PENDING',
@@ -42,7 +40,6 @@ class PreviewHandler {
         const boundFunc = func.bind(this);
         return (...args) => {
             clearTimeout(timeoutId);
-            console.log("Debouncing function call");
             timeoutId = setTimeout(() => boundFunc(...args), delay);
         };
     }

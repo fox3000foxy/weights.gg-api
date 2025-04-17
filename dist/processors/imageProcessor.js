@@ -40,7 +40,7 @@ class ImageProcessor {
                     await this.loraService.removeLora(page);
                 const loraAdded = await this.loraService.addLora(loraName, page);
                 if (!loraAdded) {
-                    console.log("Failed to add Lora, requeuing job.");
+                    console.error("Failed to add Lora, requeuing job.");
                     this.imageQueue.enqueue({ data: { query: null }, id: job.imageId }, page); // Re-add the job to the front of the queue
                     return;
                 }
@@ -60,13 +60,11 @@ class ImageProcessor {
             await this.puppeteerService.onStart(this.puppeteerService.generationPage, this.config.WEIGHTS_GG_COOKIE);
         }
         else {
-            console.log("Final image URL:", result.url);
             try {
                 const base64Data = result.url.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
                 const filePath = result.url.startsWith('data:image')
                     ? await this.imageService.saveBase64Image(base64Data, imageId, true)
                     : await this.imageService.downloadImage(result.url, imageId);
-                console.log(`Final image saved to ${filePath}`);
             }
             catch (error) {
                 console.error("Error handling final image:", error);

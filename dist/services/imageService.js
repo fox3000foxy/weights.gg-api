@@ -60,14 +60,12 @@ class ImageService {
         try {
             if (isFinal) {
                 fs.writeFileSync(filePath, buffer);
-                console.log(`Final image saved to ${filePath}`);
             }
             else {
                 await (0, sharp_1.default)(buffer)
                     .resize({ width: this.config.IMAGE_WIDTH })
                     .jpeg({ quality: 80 })
                     .toFile(filePath);
-                console.log(`Preview image saved to ${filePath}`);
             }
             return filePath;
         }
@@ -78,7 +76,6 @@ class ImageService {
     }
     cleanupOldImages() {
         const IMAGE_DIR = path.join(__dirname, "..", this.config.IMAGE_DIR);
-        console.log(IMAGE_DIR);
         fs.readdir(IMAGE_DIR, (err, files) => {
             if (err) {
                 console.error("Could not list the directory.", err);
