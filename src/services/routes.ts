@@ -44,6 +44,8 @@ export const setupRoutes = (
         next();
     };
 
+    app.use(apiKeyCheck);
+
     app.get('/health', (req: Request, res: Response) => {
         res.send({ status: 'OK' });
     });
