@@ -41,3 +41,6 @@ This bot automates image generation on Weights.gg using Puppeteer. It manages a 
         -   `imageId`: Unique identifier for the image generation job.
         -   `imageUrl`: URL of the generated image.
         -   `statusUrl`: URL to check the status of the image generation job.
+-   `/quota`: Retrieves the API quota information.
+    -   **Response**:
+            Pure text

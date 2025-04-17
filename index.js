@@ -142,7 +142,7 @@ async function generateImage(prompt, page, emitter, imageId) {
         }
 
         // Focus on the image input
-        const imageInput = document.querySelector("#imagegen-input");
+        const imageInput = await waitForAndQuerySelector("#imagegen-input");
         imageInput.focus();
         imageInput.click();
         imageInput.innerText = prompt;
@@ -580,6 +580,7 @@ const setupExpressRoutes = (emitter) => {
     app.use('/status', apiKeyCheck);
     app.use('/search-loras', apiKeyCheck);
     app.use('/generateImage', apiKeyCheck);
+    app.use('/quota', apiKeyCheck);
 
     app.get('/health', (req, res) => res.send({ status: 'OK' }));
 
@@ -619,6 +620,12 @@ const setupExpressRoutes = (emitter) => {
         jobQueue.push(job);
         processQueue();
     });
+
+    app.get("/quota", async (req, res) => {
+        res.send(await generationPage.evaluate(() => {
+            return document.querySelector("body > div.MuiModal-root.css-1sucic7 > div.flex.outline-none.flex-col.items-center.gap-4.w-full.md\\:w-\\[400px\\].min-h-\\[200px\\].absolute.bottom-0.md\\:bottom-auto.md\\:top-1\\/2.md\\:left-1\\/2.md\\:-translate-x-1\\/2.md\\:-translate-y-1\\/2.px-6.py-6.rounded-t-3xl.md\\:rounded-3xl.shadow-lg.bg-white.dark\\:bg-neutral-800.max-h-screen.overflow-y-auto.overflow-x-hidden.pb-\\[var\\(--is-mobile-pb\\)\\].md\\:pb-\\[var\\(--is-mobile-pb-md\\)\\] > div.-mt-2.flex.w-full.items-center.justify-center.gap-2 > a > div.flex.items-center.gap-2 > span")?.innerText
+        }))
+    })
 
     return app;
 };
@@ -676,7 +683,7 @@ async function main(callback) {
         console.log(`Server is running at ${API_URL}:${PORT}`);
     });
 
-    callback(page, emitter);
+    callback(generationPage, emitter);
 }
 
 // --- Initialize ---
