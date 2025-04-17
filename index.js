@@ -22,7 +22,7 @@ const IMAGE_WIDTH = 400; // Width for preview images
 const IMAGE_DIR = path.join(__dirname, 'images');
 
 // --- Globals ---
-let page = null; // Single page instance
+let generationPage = null; // Single page instance
 let oldLoraName = null; // Variable to hold the previous Lora name
 let loraSearchPage = null;
 
@@ -293,6 +293,16 @@ async function createImageJob(prompt, page, emitter, imageId) {
         if(result.error) {
             console.error("Error generating image:", result.error);
             updateImageStatus(imageId, 'FAILED', result.error);
+                    try {
+            await page.close();
+            const { browser: newBrowser, page: newPage } = await connect({ headless: false, args: [], customConfig: {}, turnstile: true, connectOption: {}, disableXvfb: false, ignoreAllFlags: false });
+            generationPage = newPage;
+            await onStart(generationPage);
+            console.log("Page restarted successfully.");
+        } catch (restartError) {
+            console.error("Failed to restart the page:", restartError);
+            // Handle the restart error as needed
+        }
             // console.log("This is pid " + process.pid);
             // setTimeout(function () {
             //     process.on("exit", function () {
@@ -308,10 +318,22 @@ async function createImageJob(prompt, page, emitter, imageId) {
             console.log("Final image URL:", result.url);
             await handleImageResult(result, imageId);
             updateImageStatus(imageId, 'COMPLETED');    
+
         }
     } catch (error) {
         console.error("Error generating image:", error);
         updateImageStatus(imageId, 'FAILED', error.message);
+        console.log("Refreshing the page after an error");
+        try {
+            await page.close();
+            const { browser: newBrowser, page: newPage } = await connect({ headless: false, args: [], customConfig: {}, turnstile: true, connectOption: {}, disableXvfb: false, ignoreAllFlags: false });
+            generationPage = newPage;
+            await onStart(generationPage);
+            console.log("Page restarted successfully.");
+        } catch (restartError) {
+            console.error("Failed to restart the page:", restartError);
+            // Handle the restart error as needed
+        }
     } finally {
         console.log("Image job finished for ID:", imageId);
         processing = false;
@@ -405,7 +427,6 @@ function saveLoraCache() {
 }
 
 loadLoraCache();
-
 // --- Queue Processing Function ---
 async function processQueue() {
     if (processing || jobQueue.length === 0) return;
@@ -413,7 +434,7 @@ async function processQueue() {
     const job = jobQueue.shift();
     const { prompt, loraName, imageId, res, emitter } = job;
 
-    if (!page) {
+    if (!generationPage) {
         jobQueue.unshift(job);
         console.log("Page not ready, waiting 5 seconds...");
         setTimeout(processQueue, 5000);
@@ -425,12 +446,19 @@ async function processQueue() {
     try {
         if (loraName) {
             if (oldLoraName !== loraName) {
-                if (oldLoraName) await removeLora(page);
-                await addLora(loraName, page);
+                if (oldLoraName) await removeLora(generationPage);
+                const loraAdded = await addLora(loraName, generationPage);
+                if (!loraAdded) {
+                    console.log("Failed to add Lora, requeuing job.");
+                    jobQueue.unshift({...job, loraName: null}); // Re-add the job to the front of the queue
+                    processing = false;
+                    setTimeout(processQueue, 5000); // Try again after 5 seconds
+                    return;
+                }
                 oldLoraName = loraName;
             }
         } else if (oldLoraName) {
-            await removeLora(page);
+            await removeLora(generationPage);
             oldLoraName = null;
         }
 
@@ -441,11 +469,24 @@ async function processQueue() {
             statusUrl: `${API_URL}/status/${imageId}`,
         });
 
-        await createImageJob(decodeURIComponent(prompt), page, emitter, imageId);
+        await createImageJob(decodeURIComponent(prompt), generationPage, emitter, imageId);
     } catch (error) {
         console.error("Error generating image:", error);
         updateImageStatus(imageId, 'FAILED', error.message);
         res.status(500).send({ success: false, error: "Failed to generate image." });
+
+        // Restart the page
+        console.log("Restarting the page after an error");
+        try {
+            await generationPage.close();
+            const { browser: newBrowser, page: newPage } = await connect({ headless: false, args: [], customConfig: {}, turnstile: true, connectOption: {}, disableXvfb: false, ignoreAllFlags: false });
+            generationPage = newPage;
+            await onStart(generationPage);
+            console.log("Page restarted successfully.");
+        } catch (restartError) {
+            console.error("Failed to restart the page:", restartError);
+            // Handle the restart error as needed
+        }
     } finally {
         processing = false;
         processQueue();
@@ -591,8 +632,8 @@ async function main(callback) {
     }
 
     const { browser, page: newPage } = await connect({ headless: false, args: [], customConfig: {}, turnstile: true, connectOption: {}, disableXvfb: false, ignoreAllFlags: false });
-    page = newPage;
-    await onStart(page);
+    generationPage = newPage;
+    await onStart(generationPage);
 
     // Create a second page for Lora searches
     const { page: newLoraSearchPage } = await connect({ headless: false, args: [], customConfig: {}, turnstile: true, connectOption: {}, disableXvfb: false, ignoreAllFlags: false });
@@ -622,9 +663,9 @@ async function main(callback) {
 
     const debouncedHandlePreviewUpdate = debounce(handlePreviewUpdate, 200); // Adjust the delay as needed
 
-    await page.exposeFunction('handlePreviewUpdate', debouncedHandlePreviewUpdate);
+    await generationPage.exposeFunction('handlePreviewUpdate', debouncedHandlePreviewUpdate);
 
-    await page.evaluate(() => {
+    await generationPage.evaluate(() => {
         window.addEventListener('previewUpdate', (event) => {
             window.handlePreviewUpdate(event.detail);
         });
