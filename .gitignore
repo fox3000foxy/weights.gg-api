@@ -137,3 +137,8 @@ dist
 
 images/*
 lora_cache.json
+
+# Typescript output
+*.js
+*.d.ts
+/dist
