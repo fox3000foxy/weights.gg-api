@@ -12,6 +12,10 @@ This bot automates image generation on Weights.gg using Puppeteer. It manages a 
 -   **Error Handling:** Implements robust error handling and logging.
 -   **Health Check:** Provides a health check endpoint to monitor the bot's status.
 
+## Warning
+
+⚠️ Images expire within 6 hours. Please download them if you intend to keep them.
+
 ## Endpoints
 
 -   `/health`: Checks if the server is running.

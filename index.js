@@ -689,6 +689,40 @@ async function main(callback) {
 // --- Initialize ---
 main((page, emitter) => {
     console.log(`One instance is ready.`);
+
+    setInterval(() => {
+        fs.readdir(IMAGE_DIR, (err, files) => {
+            if (err) {
+                console.error("Could not list the directory.", err);
+                return;
+            }
+
+            files.forEach(file => {
+                const filePath = path.join(IMAGE_DIR, file);
+
+                fs.stat(filePath, (err, stats) => {
+                    if (err) {
+                        console.error("Error reading file stats:", filePath, err);
+                        return;
+                    }
+
+                    const fileAge = Date.now() - stats.atimeMs; // Access time
+                    const sixHours = 6 * 60 * 60 * 1000;
+
+                    if (fileAge > sixHours) {
+                        fs.unlink(filePath, (err) => {
+                            if (err) {
+                                console.error("Error deleting file:", filePath, err);
+                            } else {
+                                console.log("File deleted:", filePath);
+                            }
+                        });
+                    }
+                });
+            });
+        });
+    }, 1000); // Check every hour
+
 });
 
 // --- Error Handling ---
