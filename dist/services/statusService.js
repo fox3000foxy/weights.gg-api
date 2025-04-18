@@ -10,11 +10,8 @@ class StatusService {
         this.imageStatuses[imageId] = {
             status,
             lastModifiedDate: Date.now(),
-            error: null
+            error: status == "FAILED" ? errorMessage || "No error description provided" : null
         };
-        if (this.imageStatuses[imageId].status == 'FAILED') {
-            this.imageStatuses[imageId].error = errorMessage || null;
-        }
         if (errorMessage) {
             console.error(`Error for image ${imageId}: ${errorMessage}`);
         }

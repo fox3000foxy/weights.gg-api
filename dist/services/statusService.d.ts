@@ -6,7 +6,7 @@ export declare class StatusService {
             error: string | null;
         };
     };
-    updateImageStatus(imageId: string, status: string, errorMessage?: string): void;
+    updateImageStatus(imageId: string, status: string, errorMessage?: string | null): void;
     getImageStatus(imageId: string): {
         status: string;
         lastModifiedDate?: number;
