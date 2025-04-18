@@ -3,6 +3,7 @@ export declare class StatusService {
         [key: string]: {
             status: string;
             lastModifiedDate?: number;
+            error: string | null;
         };
     };
     updateImageStatus(imageId: string, status: string, errorMessage?: string): void;
