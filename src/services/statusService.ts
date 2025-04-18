@@ -9,9 +9,8 @@ export class StatusService {
             error: null
         };
 
-        if(errorMessage) {
-            this.imageStatuses[imageId].status = 'FAILED';
-            this.imageStatuses[imageId].error= errorMessage;
+        if(this.imageStatuses[imageId].status == 'FAILED') {
+            this.imageStatuses[imageId].error= errorMessage || null;
         }
 
         if (errorMessage) {
