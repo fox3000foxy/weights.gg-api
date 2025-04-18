@@ -50,8 +50,8 @@ async function generateImage(prompt, page, emitter, imageId) {
             if (errorToast) {
                 errorToast.remove();
                 console.log("Error toast removed");
-                // return { error: "Error generating image. Filters doesn't really love your prompt..." };
-                throw new Error("Error generating image. Filters doesn't really love your prompt...");
+                return { error: "Error generating image. Filters doesn't really love your prompt..." };
+                // throw new Error("Error generating image. Filters doesn't really love your prompt...");
             }
             const previewElement = document.querySelector('img[alt="image-preview"]');
             if (previewElement && oldPreview !== previewElement.src) {
