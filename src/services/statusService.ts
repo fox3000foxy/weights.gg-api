@@ -14,7 +14,7 @@ export class StatusService {
         }
     }
 
-    public getImageStatus(imageId: string): { status: string; lastModifiedDate?: number } | undefined {
+    public getImageStatus(imageId: string): { status: string; lastModifiedDate?: number, error: string | null } | undefined {
         return this.imageStatuses[imageId];
     }
 }

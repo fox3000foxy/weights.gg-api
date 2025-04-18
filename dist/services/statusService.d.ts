@@ -10,6 +10,7 @@ export declare class StatusService {
     getImageStatus(imageId: string): {
         status: string;
         lastModifiedDate?: number;
+        error: string | null;
     } | undefined;
 }
 export default StatusService;
