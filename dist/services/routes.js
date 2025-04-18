@@ -1,6 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.setupRoutes = void 0;
+let generateTimer = 0;
+let searchTimer = 0;
 const apiKeyCheck = (config) => (req, res, next) => {
     const apiKey = req.headers['x-api-key'];
     if (!apiKey || apiKey !== config.API_KEY) {
@@ -18,6 +20,16 @@ const statusRoute = (statusService) => (req, res) => {
     res.send(status);
 };
 const searchLoraRoute = (loraSearchQueue, imageService, puppeteerService) => async (req, res) => {
+    if (!searchTimer) {
+        searchTimer = 100;
+    }
+    else {
+        while (searchTimer < 0) {
+            searchTimer--;
+            searchLoraRoute(loraSearchQueue, imageService, puppeteerService);
+            return;
+        }
+    }
     const { query } = req.query;
     if (!query || typeof query !== 'string') {
         res.status(400).send({ error: "Query parameter is required." });
@@ -34,6 +46,16 @@ const searchLoraRoute = (loraSearchQueue, imageService, puppeteerService) => asy
     }, puppeteerService.loraSearchPage);
 };
 const generateImageRoute = (imageQueue, config, imageService, events, puppeteerService, statusService) => async (req, res) => {
+    if (!generateTimer) {
+        generateTimer = 100;
+    }
+    else {
+        while (generateTimer < 0) {
+            generateTimer--;
+            generateImageRoute(imageQueue, config, imageService, events, puppeteerService, statusService);
+            return;
+        }
+    }
     if (imageQueue.queue.length >= config.MAX_QUEUE_SIZE) {
         res.status(429).send({ error: "Server is busy. Please try again later." });
         return;

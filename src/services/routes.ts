@@ -8,6 +8,9 @@ import { Queue } from './queueService';
 import { Page } from 'rebrowser-puppeteer-core';
 import { SearchLoraJob, GenerateImageJob } from '../types';
 
+let generateTimer: number = 0;
+let searchTimer: number = 0;
+
 const apiKeyCheck = (config: Config) => (req: Request, res: Response, next: NextFunction): void => {
     const apiKey = req.headers['x-api-key'];
     if (!apiKey || apiKey !== config.API_KEY) {
@@ -28,6 +31,17 @@ const statusRoute = (statusService: StatusService) => (req: Request, res: Respon
 };
 
 const searchLoraRoute = (loraSearchQueue: Queue, imageService: ImageService, puppeteerService: PuppeteerService) => async (req: Request, res: Response) => {
+    if(!searchTimer) {
+        searchTimer = 100;
+    }
+    else {
+        while(searchTimer < 0) {
+            searchTimer--;
+            searchLoraRoute(loraSearchQueue, imageService, puppeteerService);
+            return;
+        }
+    }
+
     const { query } = req.query;
     if (!query || typeof query !== 'string') {
         res.status(400).send({ error: "Query parameter is required." });
@@ -46,6 +60,18 @@ const searchLoraRoute = (loraSearchQueue: Queue, imageService: ImageService, pup
 };
 
 const generateImageRoute = (imageQueue: Queue, config: Config, imageService: ImageService, events: EventEmitter, puppeteerService: PuppeteerService, statusService: StatusService) => async (req: Request, res: Response) => {
+    
+    if(!generateTimer) {
+        generateTimer = 100;
+    }
+    else {
+        while(generateTimer < 0) {
+            generateTimer--;
+            generateImageRoute(imageQueue, config, imageService, events, puppeteerService, statusService);
+            return;
+        }
+    }
+    
     if (imageQueue.queue.length >= config.MAX_QUEUE_SIZE) {
         res.status(429).send({ error: "Server is busy. Please try again later." });
         return;
