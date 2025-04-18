@@ -66,7 +66,7 @@ const generateImageRoute = (imageQueue: Queue, config: Config, imageService: Ima
         res, 
         emitter: events
     };
-    statusService.updateImageStatus(imageId, 'STARTING');
+    statusService.updateImageStatus(imageId, 'QUEUED');
     imageQueue.enqueue({ ...job, id: imageId, data: { prompt } }, puppeteerService.generationPage as Page);
     res.send({
         success: true,
