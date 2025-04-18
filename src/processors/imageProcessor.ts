@@ -37,7 +37,6 @@ export class ImageProcessor {
         }
 
         try {
-            this.statusService.updateImageStatus(imageId, 'STARTING');
             await this.handleLora(loraName, page, job);
             const result = await generateImage(decodeURIComponent(prompt), page, emitter, imageId);
             await this.handleImageResult(result, imageId);

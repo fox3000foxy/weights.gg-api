@@ -45,7 +45,7 @@ const searchLoraRoute = (loraSearchQueue: Queue, imageService: ImageService, pup
     } as SearchLoraJob, puppeteerService.loraSearchPage as Page);
 };
 
-const generateImageRoute = (imageQueue: Queue, config: Config, imageService: ImageService, events: EventEmitter, puppeteerService: PuppeteerService) => async (req: Request, res: Response) => {
+const generateImageRoute = (imageQueue: Queue, config: Config, imageService: ImageService, events: EventEmitter, puppeteerService: PuppeteerService, statusService: StatusService) => async (req: Request, res: Response) => {
     if (imageQueue.queue.length >= config.MAX_QUEUE_SIZE) {
         res.status(429).send({ error: "Server is busy. Please try again later." });
         return;
@@ -66,7 +66,7 @@ const generateImageRoute = (imageQueue: Queue, config: Config, imageService: Ima
         res, 
         emitter: events
     };
-
+    statusService.updateImageStatus(imageId, 'STARTING');
     imageQueue.enqueue({ ...job, id: imageId, data: { prompt } }, puppeteerService.generationPage as Page);
     res.send({
         success: true,
@@ -99,7 +99,7 @@ export const setupRoutes = (
     app.get('/health', healthRoute);
     app.get('/status/:imageId', statusRoute(statusService));
     app.get('/search-loras', searchLoraRoute(loraSearchQueue, imageService, puppeteerService));
-    app.get('/generateImage', generateImageRoute(imageQueue, config, imageService, events, puppeteerService));
+    app.get('/generateImage', generateImageRoute(imageQueue, config, imageService, events, puppeteerService, statusService));
     app.get("/quota", quotaRoute(puppeteerService));
 };
 
