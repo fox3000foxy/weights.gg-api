@@ -12,7 +12,6 @@ export class LoraSearchProcessor {
 
   async processLoraSearch(job: LoraSearchJob, loraSearchPage: Page) {
     const { query, res } = job;
-
     try {
       if (this.loraService.loraSearchCache.has(query)) {
         console.log(`Using cached result for Lora search: ${query}`);

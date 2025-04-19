@@ -25,8 +25,8 @@ class Queue {
             throw new Error("Queue is full");
         }
         this.searchingQueue.push(item);
-        if (!this.processing && this.processor) {
-            this.process(this.processor, page);
+        if (!this.processingSearch && this.processorSearch) {
+            this.processSearch(this.processorSearch, page);
         }
     }
     dequeue() {
@@ -68,7 +68,7 @@ class Queue {
         this.processorSearch = processorSearch;
         this.processingSearch = true;
         try {
-            while (!this.isEmpty()) {
+            while (!this.isEmptySearch()) {
                 const item = this.dequeueSearch();
                 if (item) {
                     await processorSearch(item.job, page);

@@ -4,14 +4,14 @@
   "description": "A project for image processing and Lora search using Puppeteer and Express.",
   "main": "src/index.ts",
   "scripts": {
-    "start": "ts-node src/index.ts",
+    "start": "npx ts-node src/index.ts",
     "lint": "npx eslint src --ext .ts",
     "lint:fix": "npx eslint src --ext .ts --fix",
     "format": "npx prettier --write src",
     "format:check": "npx prettier --check src",
-    "dev": "ts-node-dev src/index.ts",
-    "build": "tsc",
-    "test": "jest"
+    "dev": "npx ts-node-dev src/index.ts",
+    "build": "npx tsc",
+    "test": "npx jest"
   },
   "dependencies": {
     "dotenv": "^16.5.0",
