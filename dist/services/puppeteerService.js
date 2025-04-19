@@ -15,11 +15,11 @@ class PuppeteerService {
             turnstile: true,
             connectOption: {},
             disableXvfb: false,
-            ignoreAllFlags: false
+            ignoreAllFlags: false,
         };
         const [{ page: newPage }, { page: newLoraSearchPage }] = await Promise.all([
             (0, puppeteer_real_browser_1.connect)(connectOptions),
-            (0, puppeteer_real_browser_1.connect)(connectOptions)
+            (0, puppeteer_real_browser_1.connect)(connectOptions),
         ]);
         this.generationPage = newPage;
         this.loraSearchPage = newLoraSearchPage;
@@ -27,10 +27,10 @@ class PuppeteerService {
     async onStart(page, cookie) {
         await page.goto("https://weights.gg/create");
         await page.setCookie({
-            name: 'next-auth.session-token',
+            name: "next-auth.session-token",
             value: cookie,
             secure: true,
-            httpOnly: false
+            httpOnly: false,
         });
         await page.goto("https://weights.gg/create", { waitUntil: "load" });
         await page.evaluate(() => {
@@ -40,7 +40,7 @@ class PuppeteerService {
             }
         });
     }
-    async restartPage(page, cookie) {
+    async restartPage(page) {
         try {
             await page.close();
             const { page: newPage } = await (0, puppeteer_real_browser_1.connect)({
@@ -50,7 +50,7 @@ class PuppeteerService {
                 turnstile: true,
                 connectOption: {},
                 disableXvfb: false,
-                ignoreAllFlags: false
+                ignoreAllFlags: false,
             });
             return newPage;
         }

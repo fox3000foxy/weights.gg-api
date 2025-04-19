@@ -1,10 +1,6 @@
-import { Page } from 'rebrowser-puppeteer-core';
-import { LoraService } from '../services/loraService';
-import { Response } from 'express';
-interface LoraSearchJob {
-    query: string;
-    res: Response;
-}
+import { Page } from "rebrowser-puppeteer-core";
+import { LoraService } from "../services/loraService";
+import { LoraSearchJob } from "types";
 export declare class LoraSearchProcessor {
     private loraService;
     constructor(loraService: LoraService);

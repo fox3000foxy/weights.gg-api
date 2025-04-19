@@ -1,78 +1,88 @@
 // src/types/index.ts
 
-import { EventEmitter } from 'events';
-import { Response } from 'express';
-import { Page } from 'rebrowser-puppeteer-core';
+import { EventEmitter } from "events";
+import { Response } from "express";
+import { Page } from "rebrowser-puppeteer-core";
 
 export interface ConnectOptions {
-    headless: boolean;
-    args: string[];
-    customConfig: Record<string, unknown>;
-    turnstile: boolean;
-    connectOption: Record<string, unknown>;
-    disableXvfb: boolean;
-    ignoreAllFlags: boolean;
+  headless: boolean;
+  args: string[];
+  customConfig: Record<string, unknown>;
+  turnstile: boolean;
+  connectOption: Record<string, unknown>;
+  disableXvfb: boolean;
+  ignoreAllFlags: boolean;
 }
 
 export const EVENT_TYPES = {
-    PREVIEW_UPDATE: 'preview:update',
-    STATUS_UPDATE: 'status:update'
+  PREVIEW_UPDATE: "preview:update",
+  STATUS_UPDATE: "status:update",
 } as const;
 
-export interface GenerateImageJob {
-    prompt: string;
-    loraName?: string;
-    imageId: string;
-    res: Response;
-    emitter: EventEmitter;
-}
-
 export interface ImageGenerationResult {
-    url?: string;
-    imageId?: string;
-    error?: string;
+  url?: string;
+  imageId?: string;
+  error?: string;
 }
 
 export interface ImageResult {
-    url: string;
-    error?: string;
+  url: string;
+  error?: string;
 }
 
 export interface Job {
-    prompt: string;
-    loraName: string | null;
-    imageId: string;
-    emitter: EventEmitter;
+  prompt: string;
+  loraName: string | null;
+  imageId: string;
+  emitter: EventEmitter;
+}
+
+export interface GenerateImageJob extends Job {
+  res: Response;
 }
 
 export interface LoraResult {
-    name: string;
-    image: string;
-    tags: string[];
+  name: string;
+  image: string;
+  tags: string[];
 }
 
 export interface LoraSearchResult {
-    id: string;
-    name: string;
+  id: string;
+  name: string;
 }
 
-export type ProcessorFunction = (item: QueueItem, page: Page) => Promise<void>;
-
-export interface QueueItem {
-    id: string;
-    data: any;
+export interface LoraSearchJob {
+  query: string;
+  res: Response;
 }
 
-export interface SearchLoraJob {
-    query: string;
-    res: Response;
-    searchId: string;
-    id: string;
-    data: any;
+export type ProcessorFunction = (job: Job, page: Page) => Promise<void>;
+export type SearchProcessorFunction = (
+  job: LoraSearchJob,
+  page: Page,
+) => Promise<void>;
+
+export interface JobQueueItem {
+  id: string;
+  data: object;
+  job: Job;
+}
+
+export interface JobSearchQueueItem {
+  id: string;
+  data: object;
+  job: LoraSearchJob;
+}
+
+export interface SearchLoraJob extends LoraSearchJob {
+  searchId: string;
+  id: string;
+  data: object;
 }
 
 export interface StatusUpdate {
-    imageId: string;
-    status: 'STARTING' | 'COMPLETED' | 'FAILED' | 'PENDING';
-    error?: string | null;
+  imageId: string;
+  status: "STARTING" | "COMPLETED" | "FAILED" | "PENDING";
+  error?: string | null;
 }

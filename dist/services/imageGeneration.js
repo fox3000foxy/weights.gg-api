@@ -4,7 +4,7 @@ exports.generateImage = void 0;
 async function generateImage(prompt, page, emitter, imageId) {
     console.log("Generating image with prompt:", prompt);
     const imageUrl = await page.evaluate(async (prompt, imageId) => {
-        const sleepBrowser = (ms) => new Promise(r => setTimeout(r, ms));
+        const sleepBrowser = (ms) => new Promise((r) => setTimeout(r, ms));
         async function waitForAndQuerySelector(selector) {
             while (!document.querySelector(selector)) {
                 console.log(`${selector} not loaded yet, waiting...`);
@@ -17,7 +17,7 @@ async function generateImage(prompt, page, emitter, imageId) {
             prompt = existingPrompt.textContent + ", " + prompt;
             console.log("Prompt updated to:", prompt);
         }
-        const imageInput = await waitForAndQuerySelector("#imagegen-input");
+        const imageInput = (await waitForAndQuerySelector("#imagegen-input"));
         if (!imageInput)
             throw new Error("Image input not found");
         imageInput.focus();
@@ -27,7 +27,7 @@ async function generateImage(prompt, page, emitter, imageId) {
         imageInput.dispatchEvent(new Event("change", { bubbles: true }));
         imageInput.dispatchEvent(new Event("blur", { bubbles: true }));
         console.log("Image generation input focused and prompt set:", prompt);
-        const generateButton = await waitForAndQuerySelector("body > div.MuiModal-root.css-1sucic7 > div.flex.outline-none.flex-col.items-center.gap-4.w-full.md\\:w-\\[400px\\].min-h-\\[200px\\].absolute.bottom-0.md\\:bottom-auto.md\\:top-1\\/2.md\\:left-1\\/2.md\\:-translate-x-1\\/2.md\\:-translate-y-1\\/2.px-6.py-6.rounded-t-3xl.md\\:rounded-3xl.shadow-lg.bg-white.dark\\:bg-neutral-800.max-h-screen.overflow-y-auto.overflow-x-hidden.pb-\\[var\\(--is-mobile-pb\\)\\].md\\:pb-\\[var\\(--is-mobile-pb-md\\)\\] > button.flex.w-full.items-center.justify-center.gap-2.rounded-lg.bg-black.px-3.py-1.font-bold.text-white.hover-scale");
+        const generateButton = (await waitForAndQuerySelector("body > div.MuiModal-root.css-1sucic7 > div.flex.outline-none.flex-col.items-center.gap-4.w-full.md\\:w-\\[400px\\].min-h-\\[200px\\].absolute.bottom-0.md\\:bottom-auto.md\\:top-1\\/2.md\\:left-1\\/2.md\\:-translate-x-1\\/2.md\\:-translate-y-1\\/2.px-6.py-6.rounded-t-3xl.md\\:rounded-3xl.shadow-lg.bg-white.dark\\:bg-neutral-800.max-h-screen.overflow-y-auto.overflow-x-hidden.pb-\\[var\\(--is-mobile-pb\\)\\].md\\:pb-\\[var\\(--is-mobile-pb-md\\)\\] > button.flex.w-full.items-center.justify-center.gap-2.rounded-lg.bg-black.px-3.py-1.font-bold.text-white.hover-scale"));
         if (!generateButton)
             throw new Error("Generate button not found");
         generateButton.click();
@@ -39,7 +39,9 @@ async function generateImage(prompt, page, emitter, imageId) {
             if (errorToast) {
                 errorToast.remove();
                 console.log("Error toast removed");
-                return { error: "Error generating image. Filters don't really love your prompt..." };
+                return {
+                    error: "Error generating image. Filters don't really love your prompt...",
+                };
             }
         }
         let oldPreview = null;
@@ -50,14 +52,16 @@ async function generateImage(prompt, page, emitter, imageId) {
             if (errorToast) {
                 errorToast.remove();
                 console.log("Error toast removed");
-                return { error: "Error generating image. Filters don't really love your prompt..." };
+                return {
+                    error: "Error generating image. Filters don't really love your prompt...",
+                };
                 // throw new Error("Error generating image. Filters don't really love your prompt...");
             }
             const previewElement = document.querySelector('img[alt="image-preview"]');
             if (previewElement && oldPreview !== previewElement.src) {
                 oldPreview = previewElement.src;
-                window.dispatchEvent(new CustomEvent('previewUpdate', {
-                    detail: { url: oldPreview, imageId }
+                window.dispatchEvent(new CustomEvent("previewUpdate", {
+                    detail: { url: oldPreview, imageId },
                 }));
             }
             generatedImageElement = document.querySelector('img[alt="Generated Image"]');

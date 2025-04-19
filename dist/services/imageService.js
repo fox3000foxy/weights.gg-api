@@ -45,17 +45,18 @@ class ImageService {
         return new Promise((resolve, reject) => {
             const filePath = path.join(path.join(__dirname, "..", this.config.IMAGE_DIR), `${imageId}.jpg`);
             const file = fs.createWriteStream(filePath);
-            https.get(url, (response) => {
+            https
+                .get(url, (response) => {
                 response.pipe(file);
-                file.on('finish', () => file.close(() => resolve(filePath)));
-            }).on('error', (err) => {
+                file.on("finish", () => file.close(() => resolve(filePath)));
+            })
+                .on("error", (err) => {
                 fs.unlink(filePath, () => reject(err));
             });
         });
     }
     async saveBase64Image(base64Data, imageId, isFinal = false) {
-        const buffer = Buffer.from(base64Data, 'base64');
-        const fileNameSuffix = isFinal ? '-final' : '';
+        const buffer = Buffer.from(base64Data, "base64");
         const filePath = path.join(path.join(__dirname, "..", this.config.IMAGE_DIR), `${imageId}.jpg`);
         try {
             if (isFinal) {
@@ -81,7 +82,7 @@ class ImageService {
                 console.error("Could not list the directory.", err);
                 return;
             }
-            files.forEach(file => {
+            files.forEach((file) => {
                 const filePath = path.join(IMAGE_DIR, file);
                 fs.stat(filePath, (err, stats) => {
                     if (err) {

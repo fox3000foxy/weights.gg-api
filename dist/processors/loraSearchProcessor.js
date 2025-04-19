@@ -32,7 +32,7 @@ class LoraSearchProcessor {
         try {
             const result = await Promise.race([
                 this.loraService.searchLoras(query, loraSearchPage),
-                timeoutPromise
+                timeoutPromise,
             ]);
             if (result?.length !== 0) {
                 this.loraService.loraSearchCache.set(query, result);

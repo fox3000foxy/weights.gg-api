@@ -75,11 +75,12 @@ async function main() {
     await puppeteerService.initialize();
     await Promise.all([
         puppeteerService.onStart(puppeteerService.generationPage, config_1.default.WEIGHTS_GG_COOKIE),
-        puppeteerService.onStart(puppeteerService.loraSearchPage, config_1.default.WEIGHTS_GG_COOKIE)
+        puppeteerService.onStart(puppeteerService.loraSearchPage, config_1.default.WEIGHTS_GG_COOKIE),
     ]);
     const emitter = new events.EventEmitter();
     // Add event listeners
     emitter.on(types_1.EVENT_TYPES.PREVIEW_UPDATE, (data) => {
+        return data;
     });
     emitter.on(types_1.EVENT_TYPES.STATUS_UPDATE, (data) => {
         statusService.updateImageStatus(data.imageId, data.status, data.error);
@@ -90,16 +91,15 @@ async function main() {
     if (!puppeteerService.loraSearchPage)
         return;
     // Expose the function directly without debounce
-    await puppeteerService.generationPage.exposeFunction('handlePreviewUpdate', (data) => previewHandler.handlePreviewUpdate(data));
+    await puppeteerService.generationPage.exposeFunction("handlePreviewUpdate", (data) => previewHandler.handlePreviewUpdate(data));
     // Setup the event listener in the browser context
     await puppeteerService.generationPage.evaluate(() => {
-        window.addEventListener('previewUpdate', (event) => {
-            // @ts-ignore
+        window.addEventListener("previewUpdate", (event) => {
             window.handlePreviewUpdate(event.detail);
         });
     });
     imageQueue.process(processImageJob, puppeteerService.generationPage);
-    loraSearchQueue.process(processLoraSearchJob, puppeteerService.loraSearchPage);
+    loraSearchQueue.processSearch(processLoraSearchJob, puppeteerService.loraSearchPage);
     (0, routes_1.default)(app, config_1.default, puppeteerService, imageService, statusService, imageQueue, loraSearchQueue, emitter);
     app.listen(config_1.default.PORT, () => {
         console.log(`Server is running on port ${config_1.default.PORT}`);

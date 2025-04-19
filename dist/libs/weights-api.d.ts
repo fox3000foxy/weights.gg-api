@@ -1,4 +1,4 @@
-import fetch from 'node-fetch';
+import fetch from "node-fetch";
 export declare class WeightsApi {
     constructor(apiKey: string | null);
     private apiKey;
@@ -10,7 +10,9 @@ export declare class WeightsApi {
      * @param body - The request body (optional)
      * @returns Promise<Response>
      */
-    apiCall(path: string, method?: string, body?: any): Promise<fetch.Response>;
+    apiCall(path: string, method?: string, body?: {
+        [key: string]: object | string | null;
+    } | null): Promise<fetch.Response>;
     /**
      * Retrieves health status of the API
      * @returns Promise with health data
@@ -28,7 +30,7 @@ export declare class WeightsApi {
      * Retrieves quota information
      * @returns Promise with quota data
      */
-    getQuota: () => Promise<any>;
+    getQuota: () => Promise<string>;
     /**
      * Searches for Lora models
      * @param params - Object containing search query
@@ -56,5 +58,5 @@ export declare class WeightsApi {
     generateProgressiveImage: (params: {
         query: string;
         loraName: string | null;
-    }, callback?: Function) => Promise<any>;
+    }, callback?: (status: string) => unknown) => Promise<any>;
 }

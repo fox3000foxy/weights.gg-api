@@ -4,15 +4,17 @@ exports.setupRoutes = void 0;
 let generateTimer = 0;
 let searchTimer = 0;
 const apiKeyCheck = (config) => (req, res, next) => {
-    const apiKey = req.headers['x-api-key'];
+    const apiKey = req.headers["x-api-key"];
     if (!apiKey || apiKey !== config.API_KEY) {
-        res.status(401).send({ error: 'Unauthorized: Missing or invalid API key' });
+        res
+            .status(401)
+            .send({ error: "Unauthorized: Missing or invalid API key" });
         return;
     }
     next();
 };
 const healthRoute = (req, res) => {
-    res.send({ status: 'OK' });
+    res.send({ status: "OK" });
 };
 const statusRoute = (statusService) => (req, res) => {
     const { imageId } = req.params;
@@ -31,18 +33,19 @@ const searchLoraRoute = (loraSearchQueue, imageService, puppeteerService) => asy
         }
     }
     const { query } = req.query;
-    if (!query || typeof query !== 'string') {
+    if (!query || typeof query !== "string") {
         res.status(400).send({ error: "Query parameter is required." });
         return;
     }
     const loraName = decodeURIComponent(query);
     const searchId = imageService.generateImageId();
-    loraSearchQueue.enqueue({
-        query: loraName,
-        res,
-        searchId,
+    loraSearchQueue.enqueueSearch({
+        job: {
+            query: loraName,
+            res,
+        },
         id: searchId,
-        data: { query: loraName }
+        data: { query: loraName },
     }, puppeteerService.loraSearchPage);
 };
 const generateImageRoute = (imageQueue, config, imageService, events, puppeteerService, statusService) => async (req, res) => {
@@ -57,24 +60,26 @@ const generateImageRoute = (imageQueue, config, imageService, events, puppeteerS
         }
     }
     if (imageQueue.queue.length >= config.MAX_QUEUE_SIZE) {
-        res.status(429).send({ error: "Server is busy. Please try again later." });
+        res
+            .status(429)
+            .send({ error: "Server is busy. Please try again later." });
         return;
     }
     const { prompt, loraName } = req.query;
-    if (!prompt || typeof prompt !== 'string') {
+    if (!prompt || typeof prompt !== "string") {
         res.status(400).send({ error: "Prompt is required." });
         return;
     }
     const imageId = imageService.generateImageId();
     const job = {
         prompt,
-        loraName: typeof loraName === 'string' ? loraName : undefined,
+        loraName: typeof loraName === "string" ? loraName : null,
         imageId,
         res,
-        emitter: events
+        emitter: events,
     };
-    statusService.updateImageStatus(imageId, 'QUEUED');
-    imageQueue.enqueue({ ...job, id: imageId, data: { prompt } }, puppeteerService.generationPage);
+    statusService.updateImageStatus(imageId, "QUEUED");
+    imageQueue.enqueue({ job, id: imageId, data: { prompt } }, puppeteerService.generationPage);
     res.send({
         success: true,
         imageId,
@@ -91,10 +96,10 @@ const quotaRoute = (puppeteerService) => async (_req, res) => {
 };
 const setupRoutes = (app, config, puppeteerService, imageService, statusService, imageQueue, loraSearchQueue, events) => {
     app.use(apiKeyCheck(config));
-    app.get('/health', healthRoute);
-    app.get('/status/:imageId', statusRoute(statusService));
-    app.get('/search-loras', searchLoraRoute(loraSearchQueue, imageService, puppeteerService));
-    app.get('/generateImage', generateImageRoute(imageQueue, config, imageService, events, puppeteerService, statusService));
+    app.get("/health", healthRoute);
+    app.get("/status/:imageId", statusRoute(statusService));
+    app.get("/search-loras", searchLoraRoute(loraSearchQueue, imageService, puppeteerService));
+    app.get("/generateImage", generateImageRoute(imageQueue, config, imageService, events, puppeteerService, statusService));
     app.get("/quota", quotaRoute(puppeteerService));
 };
 exports.setupRoutes = setupRoutes;

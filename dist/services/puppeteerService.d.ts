@@ -5,7 +5,7 @@ export declare class PuppeteerService {
     constructor();
     initialize(): Promise<void>;
     onStart(page: Page, cookie: string): Promise<void>;
-    restartPage(page: Page, cookie: string): Promise<Page>;
+    restartPage(page: Page): Promise<Page>;
     getGenerationPage(): Page | null;
     getLoraSearchPage(): Page | null;
 }

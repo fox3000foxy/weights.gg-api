@@ -15,26 +15,32 @@ class PreviewHandler {
             // Emit immediately to confirm we received the data
             this.emitter.emit(types_1.EVENT_TYPES.PREVIEW_UPDATE, data);
             try {
-                const base64Data = data.url.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
-                const filePath = data.url.startsWith('data:image')
-                    ? await this.imageService.saveBase64Image(base64Data, data.imageId)
-                    : await this.imageService.downloadImage(data.url, data.imageId);
+                const base64Data = data.url.replace(/^data:image\/(png|jpeg|jpg);base64,/, "");
+                if (data.url.startsWith("data:image")) {
+                    await this.imageService.saveBase64Image(base64Data, data.imageId);
+                }
+                else {
+                    await this.imageService.downloadImage(data.url, data.imageId);
+                }
                 this.emitter.emit(types_1.EVENT_TYPES.STATUS_UPDATE, {
                     imageId: data.imageId,
-                    status: 'PENDING',
-                    lastModifiedDate: new Date().toISOString()
+                    status: "PENDING",
+                    lastModifiedDate: new Date().toISOString(),
                 });
             }
             catch (error) {
                 console.error("Error processing preview:", error);
-                this.emitter.emit(types_1.EVENT_TYPES.STATUS_UPDATE, {
-                    imageId: data.imageId,
-                    status: 'FAILED',
-                    error: error.message
-                });
+                if (error instanceof Error) {
+                    this.emitter.emit(types_1.EVENT_TYPES.STATUS_UPDATE, {
+                        imageId: data.imageId,
+                        status: "FAILED",
+                        error: error.message,
+                    });
+                }
             }
         };
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     debounce(func, delay) {
         let timeoutId;
         const boundFunc = func.bind(this);

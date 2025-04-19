@@ -16,21 +16,24 @@ class ImageProcessor {
         const { prompt, loraName, imageId, emitter } = job;
         if (!page) {
             console.error("Page is null, cannot generate image.");
-            this.statusService.updateImageStatus(imageId, 'FAILED', 'Page is null');
+            this.statusService.updateImageStatus(imageId, "FAILED", "Page is null");
             return;
         }
         try {
-            this.statusService.updateImageStatus(imageId, 'STARTING');
+            this.statusService.updateImageStatus(imageId, "STARTING");
             await this.handleLora(loraName, page, job);
             const result = await (0, imageGeneration_1.generateImage)(decodeURIComponent(prompt), page, emitter, imageId);
             await this.handleImageResult(result, imageId);
         }
         catch (error) {
-            console.error("Error generating image:", error);
-            this.statusService.updateImageStatus(imageId, 'FAILED', error.message);
-            console.log("Refreshing the page after an error");
-            this.puppeteerService.generationPage = await this.puppeteerService.restartPage(page, this.config.WEIGHTS_GG_COOKIE);
-            await this.puppeteerService.onStart(this.puppeteerService.generationPage, this.config.WEIGHTS_GG_COOKIE);
+            if (error instanceof Error) {
+                console.error("Error generating image:", error);
+                this.statusService.updateImageStatus(imageId, "FAILED", error.message);
+                console.log("Refreshing the page after an error");
+                this.puppeteerService.generationPage =
+                    await this.puppeteerService.restartPage(page);
+                await this.puppeteerService.onStart(this.puppeteerService.generationPage, this.config.WEIGHTS_GG_COOKIE);
+            }
         }
     }
     async handleLora(loraName, page, job) {
@@ -41,7 +44,16 @@ class ImageProcessor {
                 const loraAdded = await this.loraService.addLora(loraName, page);
                 if (!loraAdded) {
                     console.error("Failed to add Lora, requeuing job.");
-                    this.imageQueue.enqueue({ data: { query: null }, id: job.imageId }, page); // Re-add the job to the front of the queue
+                    this.imageQueue.enqueue({
+                        data: { query: null },
+                        id: job.imageId,
+                        job: {
+                            prompt: job.prompt,
+                            loraName: null,
+                            imageId: job.imageId,
+                            emitter: job.emitter,
+                        },
+                    }, page); // Re-add the job to the front of the queue
                     return;
                 }
                 this.oldLoraName = loraName;
@@ -55,22 +67,32 @@ class ImageProcessor {
     async handleImageResult(result, imageId) {
         if (result.error) {
             console.error("Error generating image:", result.error);
-            this.statusService.updateImageStatus(imageId, 'FAILED', result.error);
-            this.puppeteerService.generationPage = await this.puppeteerService.restartPage(this.puppeteerService.generationPage, this.config.WEIGHTS_GG_COOKIE);
+            this.statusService.updateImageStatus(imageId, "FAILED", result.error);
+            this.puppeteerService.generationPage =
+                await this.puppeteerService.restartPage(this.puppeteerService.generationPage);
             await this.puppeteerService.onStart(this.puppeteerService.generationPage, this.config.WEIGHTS_GG_COOKIE);
         }
         else {
             try {
-                const base64Data = result.url.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
-                const filePath = result.url.startsWith('data:image')
-                    ? await this.imageService.saveBase64Image(base64Data, imageId, true)
-                    : await this.imageService.downloadImage(result.url, imageId);
+                if (!result.url) {
+                    throw new Error("No URL returned from image generation");
+                }
+                const base64Data = result.url.replace(/^data:image\/(png|jpeg|jpg);base64,/, "");
+                if (result.url.startsWith("data:image")) {
+                    await this.imageService.saveBase64Image(base64Data, imageId, true);
+                }
+                else {
+                    await this.imageService.downloadImage(result.url, imageId);
+                }
             }
             catch (error) {
-                console.error("Error handling final image:", error);
-                this.statusService.updateImageStatus(imageId, 'FAILED', error.message);
+                if (error instanceof Error) {
+                    console.error("Error handling final image:", error);
+                    this.statusService.updateImageStatus(imageId, "FAILED", error.message);
+                }
+                return;
             }
-            this.statusService.updateImageStatus(imageId, 'COMPLETED');
+            this.statusService.updateImageStatus(imageId, "COMPLETED");
         }
     }
 }

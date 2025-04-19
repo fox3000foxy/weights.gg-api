@@ -1,6 +1,6 @@
-import { Page } from 'rebrowser-puppeteer-core';
-import { Config } from '../config';
-import { LoraResult } from 'types';
+import { Page } from "rebrowser-puppeteer-core";
+import { Config } from "../config";
+import { LoraResult } from "types";
 export declare class LoraService {
     config: Config;
     loraSearchCache: Map<string, LoraResult[]>;

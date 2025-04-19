@@ -36,14 +36,14 @@ api.generateProgressiveImage(
 class WeightsApi {
     constructor(apiKey) {
         this.apiKey = null;
-        this.endpoint = process.env.WEIGHTS_UNOFFICIAL_ENDPOINT || 'http://localhost:3000';
+        this.endpoint = process.env.WEIGHTS_UNOFFICIAL_ENDPOINT || "http://localhost:3000";
         /**
          * Retrieves health status of the API
          * @returns Promise with health data
          */
         this.getHealthData = async () => {
-            await this.apiCall('/health', 'GET')
-                .then(response => response.json())
+            await this.apiCall("/health", "GET")
+                .then((response) => response.json())
                 .then((response) => {
                 if (response.ok) {
                     return response;
@@ -63,18 +63,11 @@ class WeightsApi {
                 await this.getHealthData();
             }
             catch (error) {
-                throw new Error(`Weights API Error: The API is not reachable. Please check your connection or the API status.`);
+                if (error instanceof Error) {
+                    throw new Error(`Weights API Error: The API is not reachable. Please check your connection or the API status.`);
+                }
             }
-            return this.apiCall('/status/' + params.imageId, 'GET')
-                .then(response => response.json())
-                .then((response) => {
-                if (response.ok) {
-                    return response;
-                }
-                else {
-                    throw new Error(`Error: ${response.status} - ${response}`);
-                }
-            });
+            return this.apiCall("/status/" + params.imageId, "GET").then((response) => response.json());
         };
         /**
          * Retrieves quota information
@@ -85,18 +78,11 @@ class WeightsApi {
                 await this.getHealthData();
             }
             catch (error) {
-                throw new Error(`Weights API Error: The API is not reachable. Please check your connection or the API status.`);
+                if (error instanceof Error) {
+                    throw new Error(`Weights API Error: The API is not reachable. Please check your connection or the API status.`);
+                }
             }
-            return this.apiCall('/quota', 'GET')
-                .then(response => response.text())
-                .then((response) => {
-                if (response.ok) {
-                    return response;
-                }
-                else {
-                    throw new Error(`Error: ${response.status} - ${response}`);
-                }
-            });
+            return this.apiCall("/quota", "GET").then((response) => response.text());
         };
         /**
          * Searches for Lora models
@@ -108,18 +94,11 @@ class WeightsApi {
                 await this.getHealthData();
             }
             catch (error) {
-                throw new Error(`Weights API Error: The API is not reachable. Please check your connection or the API status.`);
+                if (error instanceof Error) {
+                    throw new Error(`Weights API Error: The API is not reachable. Please check your connection or the API status.`);
+                }
             }
-            return this.apiCall('/search-loras', 'GET', params)
-                .then(response => response.json())
-                .then((response) => {
-                if (response.ok) {
-                    return response;
-                }
-                else {
-                    throw new Error(`Error: ${response.status} - ${response}`);
-                }
-            });
+            return this.apiCall("/search-loras", "GET", params).then((response) => response.json());
         };
         /**
          * Generates an image based on parameters
@@ -132,18 +111,11 @@ class WeightsApi {
                 await this.getHealthData();
             }
             catch (error) {
-                throw new Error(`Weights API Error: The API is not reachable. Please check your connection or the API status.`);
+                if (error instanceof Error) {
+                    throw new Error(`Weights API Error: The API is not reachable. Please check your connection or the API status.`);
+                }
             }
-            return this.apiCall('/generateImage', 'GET', params)
-                .then(response => response.json())
-                .then((response) => {
-                if (response.ok) {
-                    return response;
-                }
-                else {
-                    throw new Error(`Error: ${response.status} - ${response}`);
-                }
-            });
+            return this.apiCall("/generateImage", "GET", params).then((response) => response.json());
         };
         /**
          * Generates a progressive image based on parameters
@@ -151,23 +123,26 @@ class WeightsApi {
          * @param callback - Function to call with status updates
          * @returns Promise with generation results
          */
-        this.generateProgressiveImage = async (params, callback = (status) => { }) => {
+        this.generateProgressiveImage = async (params, callback = (status) => {
+            return status;
+        }) => {
             try {
                 await this.getHealthData();
             }
             catch (error) {
-                throw new Error(`Weights API Error: The API is not reachable. Please check your connection or the API status.`);
+                if (error instanceof Error) {
+                    throw new Error(`Weights API Error: The API is not reachable. Please check your connection or the API status.`);
+                }
             }
             const { imageId } = await this.generateImage(params);
             const statusResponse = await this.getStatus({ imageId });
-            let { status } = statusResponse;
-            let lastModifiedDate = null;
+            const { status } = statusResponse;
             let oldModifiedDate = null;
-            while (status !== 'COMPLETED') {
-                await new Promise(resolve => setTimeout(resolve, 100)); // Wait for 100 milliseconds
+            while (status !== "COMPLETED") {
+                await new Promise((resolve) => setTimeout(resolve, 100)); // Wait for 100 milliseconds
                 const statusResponse = await this.getStatus({ imageId });
-                let { status } = statusResponse;
-                let lastModifiedDate = statusResponse.lastModifiedDate || null;
+                const { status } = statusResponse;
+                const lastModifiedDate = statusResponse.lastModifiedDate || null;
                 if (oldModifiedDate !== lastModifiedDate) {
                     oldModifiedDate = lastModifiedDate;
                     callback(status);
@@ -184,28 +159,34 @@ class WeightsApi {
      * @param body - The request body (optional)
      * @returns Promise<Response>
      */
-    async apiCall(path, method = 'GET', body = null) {
+    async apiCall(path, method = "GET", body = null) {
         const options = {
             method,
             headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': `${this.apiKey}`,
+                "Content-Type": "application/json",
+                "x-api-key": `${this.apiKey}`,
             },
         };
         let url = this.endpoint + path;
-        if (method === 'GET' && body) {
+        if (method === "GET" && body) {
             const params = new URLSearchParams();
             for (const key in body) {
-                if (body.hasOwnProperty(key)) {
-                    params.append(key, body[key]);
+                if (Object.prototype.hasOwnProperty.call(body, key)) {
+                    params.append(key, String(body[key]));
                 }
             }
-            url += '?' + params.toString();
+            url += "?" + params.toString();
         }
         else if (body) {
             options.body = JSON.stringify(body);
         }
-        return (0, node_fetch_1.default)(url, options);
+        const response = await (0, node_fetch_1.default)(url, options);
+        if (response.ok) {
+            return response;
+        }
+        else {
+            throw new Error(`Error: ${response.status} - ${response}`);
+        }
     }
 }
 exports.WeightsApi = WeightsApi;

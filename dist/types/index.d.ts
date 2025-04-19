@@ -1,7 +1,7 @@
 /// <reference types="node" />
-import { EventEmitter } from 'events';
-import { Response } from 'express';
-import { Page } from 'rebrowser-puppeteer-core';
+import { EventEmitter } from "events";
+import { Response } from "express";
+import { Page } from "rebrowser-puppeteer-core";
 export interface ConnectOptions {
     headless: boolean;
     args: string[];
@@ -15,13 +15,6 @@ export declare const EVENT_TYPES: {
     readonly PREVIEW_UPDATE: "preview:update";
     readonly STATUS_UPDATE: "status:update";
 };
-export interface GenerateImageJob {
-    prompt: string;
-    loraName?: string;
-    imageId: string;
-    res: Response;
-    emitter: EventEmitter;
-}
 export interface ImageGenerationResult {
     url?: string;
     imageId?: string;
@@ -37,6 +30,9 @@ export interface Job {
     imageId: string;
     emitter: EventEmitter;
 }
+export interface GenerateImageJob extends Job {
+    res: Response;
+}
 export interface LoraResult {
     name: string;
     image: string;
@@ -46,20 +42,29 @@ export interface LoraSearchResult {
     id: string;
     name: string;
 }
-export type ProcessorFunction = (item: QueueItem, page: Page) => Promise<void>;
-export interface QueueItem {
-    id: string;
-    data: any;
-}
-export interface SearchLoraJob {
+export interface LoraSearchJob {
     query: string;
     res: Response;
+}
+export type ProcessorFunction = (job: Job, page: Page) => Promise<void>;
+export type SearchProcessorFunction = (job: LoraSearchJob, page: Page) => Promise<void>;
+export interface JobQueueItem {
+    id: string;
+    data: object;
+    job: Job;
+}
+export interface JobSearchQueueItem {
+    id: string;
+    data: object;
+    job: LoraSearchJob;
+}
+export interface SearchLoraJob extends LoraSearchJob {
     searchId: string;
     id: string;
-    data: any;
+    data: object;
 }
 export interface StatusUpdate {
     imageId: string;
-    status: 'STARTING' | 'COMPLETED' | 'FAILED' | 'PENDING';
+    status: "STARTING" | "COMPLETED" | "FAILED" | "PENDING";
     error?: string | null;
 }
