@@ -2,13 +2,12 @@ import fetch from "node-fetch";
 import { RequestInit } from "node-fetch";
 
 export class WeightsApi {
-  constructor(apiKey: string | null) {
+  constructor(apiKey: string | null, endpoint: string | null = null) {
+    this.endpoint = endpoint;
     this.apiKey = apiKey;
   }
   private apiKey: string | null = null;
-  private endpoint: string =
-    process.env.WEIGHTS_UNOFFICIAL_ENDPOINT || "http://localhost:3000";
-
+  private endpoint: string | null = null;
   /**
    * Makes an HTTP request to the API endpoint.
    * @param path - The API endpoint path.
@@ -33,6 +32,9 @@ export class WeightsApi {
       const params = new URLSearchParams();
       for (const key in body) {
         if (Object.prototype.hasOwnProperty.call(body, key)) {
+          if(body[key] === null) {
+            continue;
+          }
           params.append(key, String(body[key]));
         }
       }
@@ -44,7 +46,7 @@ export class WeightsApi {
     if (response.ok) {
       return response;
     } else {
-      throw new Error(`Error: ${response.status} - ${response}`);
+      throw new Error(`Error: ${response.status} - ${JSON.stringify(response)}`);
     }
   }
 
@@ -124,7 +126,7 @@ export class WeightsApi {
    * @returns Promise with generation results.
    */
   generateImage = async (params: {
-    query: string;
+    prompt: string;
     loraName: string | null;
   }) => {
     return this.callWithHealthCheck(() =>
@@ -141,8 +143,8 @@ export class WeightsApi {
    * @returns Promise with generation results.
    */
   generateProgressiveImage = async (
-    params: { query: string; loraName: string | null },
-    callback: (status: string) => unknown = (status: string) => {
+    params: { prompt: string; loraName: string | null },
+    callback: (status: string, data: {imageId: string}) => unknown = (status: string) => {
       return status;
     },
   ) => {
@@ -151,6 +153,7 @@ export class WeightsApi {
     const { imageId } = await this.generateImage(params);
     const statusResponse = await this.getStatus({ imageId });
     const { status } = statusResponse;
+    callback(status, {imageId});
     let oldModifiedDate = null;
     while (status !== "COMPLETED") {
       await new Promise((resolve) => setTimeout(resolve, 100)); // Wait for 100 milliseconds
@@ -159,7 +162,11 @@ export class WeightsApi {
       const lastModifiedDate = statusResponse.lastModifiedDate || null;
       if (oldModifiedDate !== lastModifiedDate) {
         oldModifiedDate = lastModifiedDate;
-        callback(status);
+        callback(status, {imageId});
+      }
+
+      if(status === "FAILED") {
+        throw new Error("Image generation failed");
       }
     }
     return statusResponse;

@@ -6,9 +6,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WeightsApi = void 0;
 const node_fetch_1 = __importDefault(require("node-fetch"));
 class WeightsApi {
-    constructor(apiKey) {
+    constructor(apiKey, endpoint = null) {
         this.apiKey = null;
-        this.endpoint = process.env.WEIGHTS_UNOFFICIAL_ENDPOINT || "http://localhost:3000";
+        this.endpoint = null;
         /**
          * Gets the status of a specific image.
          * @param params - Object containing imageId.
@@ -53,6 +53,7 @@ class WeightsApi {
             const { imageId } = await this.generateImage(params);
             const statusResponse = await this.getStatus({ imageId });
             const { status } = statusResponse;
+            callback(status, { imageId });
             let oldModifiedDate = null;
             while (status !== "COMPLETED") {
                 await new Promise((resolve) => setTimeout(resolve, 100)); // Wait for 100 milliseconds
@@ -61,11 +62,15 @@ class WeightsApi {
                 const lastModifiedDate = statusResponse.lastModifiedDate || null;
                 if (oldModifiedDate !== lastModifiedDate) {
                     oldModifiedDate = lastModifiedDate;
-                    callback(status);
+                    callback(status, { imageId });
+                }
+                if (status === "FAILED") {
+                    throw new Error("Image generation failed");
                 }
             }
             return statusResponse;
         };
+        this.endpoint = endpoint;
         this.apiKey = apiKey;
     }
     /**
@@ -88,6 +93,9 @@ class WeightsApi {
             const params = new URLSearchParams();
             for (const key in body) {
                 if (Object.prototype.hasOwnProperty.call(body, key)) {
+                    if (body[key] === null) {
+                        continue;
+                    }
                     params.append(key, String(body[key]));
                 }
             }
@@ -101,7 +109,7 @@ class WeightsApi {
             return response;
         }
         else {
-            throw new Error(`Error: ${response.status} - ${response}`);
+            throw new Error(`Error: ${response.status} - ${JSON.stringify(response)}`);
         }
     }
     /**

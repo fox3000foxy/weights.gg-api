@@ -1,6 +1,6 @@
 import fetch from "node-fetch";
 export declare class WeightsApi {
-    constructor(apiKey: string | null);
+    constructor(apiKey: string | null, endpoint?: string | null);
     private apiKey;
     private endpoint;
     /**
@@ -51,7 +51,7 @@ export declare class WeightsApi {
      * @returns Promise with generation results.
      */
     generateImage: (params: {
-        query: string;
+        prompt: string;
         loraName: string | null;
     }) => Promise<any>;
     /**
@@ -61,7 +61,9 @@ export declare class WeightsApi {
      * @returns Promise with generation results.
      */
     generateProgressiveImage: (params: {
-        query: string;
+        prompt: string;
         loraName: string | null;
-    }, callback?: (status: string) => unknown) => Promise<any>;
+    }, callback?: (status: string, data: {
+        imageId: string;
+    }) => unknown) => Promise<any>;
 }
