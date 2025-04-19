@@ -12,34 +12,34 @@ const api = new WeightsApi('your-api-key');
 
 // Get health status
 api.getHealthData()
-    .then(data => console.log('Health:', data))
-    .catch(err => console.error(err));
+  .then(data => console.log('Health:', data))
+  .catch(err => console.error(err));
 
 // Search for Loras
 api.searchLoras({ query: 'anime' })
-    .then(results => console.log('Loras:', results))
-    .catch(err => console.error(err));
+  .then(results => console.log('Loras:', results))
+  .catch(err => console.error(err));
 
 // Generate an image
 api.generateImage({ query: 'beautiful landscape', loraName: null })
-    .then(result => console.log('Image:', result))
-    .catch(err => console.error(err));
+  .then(result => console.log('Image:', result))
+  .catch(err => console.error(err));
 
 // Generate progressive image with status updates
 api.generateProgressiveImage(
-    { query: 'sunset beach', loraName: null },
-    (status) => console.log('Status:', status)
+  { query: 'sunset beach', loraName: null },
+  (status) => console.log('Status:', status)
 )
-    .then(result => console.log('Final result:', result))
-    .catch(err => console.error(err));
+  .then(result => console.log('Final result:', result))
+  .catch(err => console.error(err));
 */
 class WeightsApi {
     constructor(apiKey) {
         this.apiKey = null;
         this.endpoint = process.env.WEIGHTS_UNOFFICIAL_ENDPOINT || "http://localhost:3000";
         /**
-         * Retrieves health status of the API
-         * @returns Promise with health data
+         * Retrieves health status of the API.
+         * @returns Promise with health data.
          */
         this.getHealthData = async () => {
             await this.apiCall("/health", "GET")
@@ -54,9 +54,9 @@ class WeightsApi {
             });
         };
         /**
-         * Gets the status of a specific image
-         * @param params - Object containing imageId
-         * @returns Promise with status information
+         * Gets the status of a specific image.
+         * @param params - Object containing imageId.
+         * @returns Promise with status information.
          */
         this.getStatus = async (params) => {
             try {
@@ -70,8 +70,8 @@ class WeightsApi {
             return this.apiCall("/status/" + params.imageId, "GET").then((response) => response.json());
         };
         /**
-         * Retrieves quota information
-         * @returns Promise with quota data
+         * Retrieves quota information.
+         * @returns Promise with quota data.
          */
         this.getQuota = async () => {
             try {
@@ -85,9 +85,9 @@ class WeightsApi {
             return this.apiCall("/quota", "GET").then((response) => response.text());
         };
         /**
-         * Searches for Lora models
-         * @param params - Object containing search query
-         * @returns Promise with search results
+         * Searches for Lora models.
+         * @param params - Object containing search query.
+         * @returns Promise with search results.
          */
         this.searchLoras = async (params) => {
             try {
@@ -101,10 +101,9 @@ class WeightsApi {
             return this.apiCall("/search-loras", "GET", params).then((response) => response.json());
         };
         /**
-         * Generates an image based on parameters
-         * @param imageId - The ID for the generated image
-         * @param params - Object containing query and optional loraName
-         * @returns Promise with generation results
+         * Generates an image based on parameters.
+         * @param params - Object containing query and optional loraName.
+         * @returns Promise with generation results.
          */
         this.generateImage = async (params) => {
             try {
@@ -118,10 +117,10 @@ class WeightsApi {
             return this.apiCall("/generateImage", "GET", params).then((response) => response.json());
         };
         /**
-         * Generates a progressive image based on parameters
-         * @param params - Object containing query and optional loraName
-         * @param callback - Function to call with status updates
-         * @returns Promise with generation results
+         * Generates a progressive image based on parameters.
+         * @param params - Object containing query and optional loraName.
+         * @param callback - Function to call with status updates.
+         * @returns Promise with generation results.
          */
         this.generateProgressiveImage = async (params, callback = (status) => {
             return status;
@@ -153,10 +152,10 @@ class WeightsApi {
         this.apiKey = apiKey;
     }
     /**
-     * Makes an HTTP request to the API endpoint
-     * @param path - The API endpoint path
-     * @param method - The HTTP method (default: 'GET')
-     * @param body - The request body (optional)
+     * Makes an HTTP request to the API endpoint.
+     * @param path - The API endpoint path.
+     * @param method - The HTTP method (default: 'GET').
+     * @param body - The request body (optional).
      * @returns Promise<Response>
      */
     async apiCall(path, method = "GET", body = null) {

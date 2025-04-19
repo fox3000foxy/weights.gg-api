@@ -22,7 +22,7 @@ class WeightsApi:
         """
         Makes an async HTTP request to the API endpoint
         """
-        if not self.session:
+        if not self.session or self.session.closed:
             self.session = aiohttp.ClientSession()
 
         headers = {
@@ -32,12 +32,26 @@ class WeightsApi:
         
         url = self.endpoint + path
         
-        if method == 'GET' and body:
-            async with self.session.get(url, params=body, headers=headers) as response:
-                return await response.json()
-        else:
-            async with self.session.request(method, url, json=body, headers=headers) as response:
-                return await response.json()
+        try:
+            if method == 'GET' and body:
+                async with self.session.get(url, params=body, headers=headers) as response:
+                    response.raise_for_status()
+                    return await response.json()
+            else:
+                async with self.session.request(method, url, json=body, headers=headers) as response:
+                    response.raise_for_status()
+                    return await response.json()
+        except aiohttp.ClientError as e:
+            raise Exception(f"Weights API Error: {e}")
+
+    async def _check_health(self):
+        """
+        Checks the health of the API and raises an exception if it's not reachable.
+        """
+        try:
+            await self.get_health_data()
+        except Exception:
+            raise Exception("Weights API Error: The API is not reachable. Please check your connection or the API status.")
 
     async def get_health_data(self) -> Dict:
         """
@@ -50,23 +64,15 @@ class WeightsApi:
         """
         Gets the status of a specific image
         """
-        try:
-            await self.get_health_data()
-        except Exception:
-            raise Exception("Weights API Error: The API is not reachable. Please check your connection or the API status.")
-
+        await self._check_health()
         data = await self.api_call(f'/status/{image_id}')
         return data
 
-    async def get_quota(self) -> str:
+    async def get_quota(self) -> Dict:
         """
         Retrieves quota information
         """
-        try:
-            await self.get_health_data()
-        except Exception:
-            raise Exception("Weights API Error: The API is not reachable. Please check your connection or the API status.")
-
+        await self._check_health()
         data = await self.api_call('/quota')
         return data
 
@@ -74,25 +80,17 @@ class WeightsApi:
         """
         Searches for Lora models
         """
-        try:
-            await self.get_health_data()
-        except Exception:
-            raise Exception("Weights API Error: The API is not reachable. Please check your connection or the API status.")
-
-        data = await self.api_call('/search-loras', body={'query': query})
+        await self._check_health()
+        data = await self.api_call('/search-loras', method='POST', body={'query': query})
         return data
 
     async def generate_image(self, query: str, lora_name: Optional[str] = None) -> Dict:
         """
         Generates an image based on parameters
         """
-        try:
-            await self.get_health_data()
-        except Exception:
-            raise Exception("Weights API Error: The API is not reachable. Please check your connection or the API status.")
-
+        await self._check_health()
         params = {'query': query, 'loraName': lora_name}
-        data = await self.api_call('/generateImage', body=params)
+        data = await self.api_call('/generateImage', method='POST', body=params)
         return data
 
     async def generate_progressive_image(self, query: str, lora_name: Optional[str] = None, 
@@ -100,26 +98,19 @@ class WeightsApi:
         """
         Generates a progressive image with status updates
         """
-        try:
-            await self.get_health_data()
-        except Exception:
-            raise Exception("Weights API Error: The API is not reachable. Please check your connection or the API status.")
+        await self._check_health()
 
         result = await self.generate_image(query, lora_name)
         image_id = result['imageId']
-        status_response = await self.get_status(image_id)
-        status = status_response.get('status')
-        last_modified_date = None
-        old_modified_date = None
-
-        while status != 'COMPLETED':
-            await asyncio.sleep(0.1)  # Async wait for 100 milliseconds
+        
+        while True:
             status_response = await self.get_status(image_id)
             status = status_response.get('status')
-            last_modified_date = status_response.get('lastModifiedDate')
+            callback(status)
             
-            if old_modified_date != last_modified_date:
-                old_modified_date = last_modified_date
-                callback(status)
+            if status == 'COMPLETED':
+                break
+            
+            await asyncio.sleep(1)
 
         return status_response
