@@ -17,7 +17,13 @@ export declare class WeightsApi {
      * Retrieves health status of the API.
      * @returns Promise with health data.
      */
-    getHealthData: () => Promise<void>;
+    getHealthData(): Promise<any>;
+    /**
+     * Wraps API calls with health check
+     * @param apiCall - The API call to make
+     * @returns Promise<T>
+     */
+    callWithHealthCheck<T>(apiCall: () => Promise<T>): Promise<T>;
     /**
      * Gets the status of a specific image.
      * @param params - Object containing imageId.
