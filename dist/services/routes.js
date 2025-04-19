@@ -6,15 +6,17 @@ let searchTimer = 0;
 const apiKeyCheck = (config) => (req, res, next) => {
     const apiKey = req.headers["x-api-key"];
     if (!apiKey || apiKey !== config.API_KEY) {
-        res
-            .status(401)
-            .send({ error: "Unauthorized: Missing or invalid API key" });
+        res.status(401).send({
+            error: "Unauthorized: Missing or invalid API key",
+        });
         return;
     }
     next();
 };
 const healthRoute = (req, res) => {
-    res.send({ status: "OK" });
+    res.send({
+        status: "OK",
+    });
 };
 const statusRoute = (statusService) => (req, res) => {
     const { imageId } = req.params;
@@ -34,7 +36,9 @@ const searchLoraRoute = (loraSearchQueue, imageService, puppeteerService) => asy
     }
     const { query } = req.query;
     if (!query || typeof query !== "string") {
-        res.status(400).send({ error: "Query parameter is required." });
+        res.status(400).send({
+            error: "Query parameter is required.",
+        });
         return;
     }
     const loraName = decodeURIComponent(query);
@@ -45,7 +49,9 @@ const searchLoraRoute = (loraSearchQueue, imageService, puppeteerService) => asy
             res,
         },
         id: searchId,
-        data: { query: loraName },
+        data: {
+            query: loraName,
+        },
     }, puppeteerService.loraSearchPage);
 };
 const generateImageRoute = (imageQueue, config, imageService, events, puppeteerService, statusService) => async (req, res) => {
@@ -60,31 +66,97 @@ const generateImageRoute = (imageQueue, config, imageService, events, puppeteerS
         }
     }
     if (imageQueue.queue.length >= config.MAX_QUEUE_SIZE) {
-        res
-            .status(429)
-            .send({ error: "Server is busy. Please try again later." });
+        res.status(429).send({
+            error: "Server is busy. Please try again later.",
+        });
         return;
     }
     const { prompt, loraName } = req.query;
-    if (!prompt || typeof prompt !== "string") {
-        res.status(400).send({ error: "Prompt is required." });
-        return;
-    }
     const imageId = imageService.generateImageId();
-    const job = {
-        prompt,
-        loraName: typeof loraName === "string" ? loraName : null,
-        imageId,
-        res,
-        emitter: events,
-    };
-    statusService.updateImageStatus(imageId, "QUEUED");
-    imageQueue.enqueue({ job, id: imageId, data: { prompt } }, puppeteerService.generationPage);
-    res.send({
-        success: true,
-        imageId,
-        statusUrl: `${config.API_URL}/status/${imageId}`,
-    });
+    if (!loraName || typeof loraName !== "string") {
+        const headers = {
+            "content-type": "application/json",
+        };
+        const { data } = await fetch("https://fooocus.one/api/predictions", {
+            headers,
+            body: JSON.stringify({
+                model: "black-forest-labs/flux-schnell",
+                input: {
+                    prompt: req.query.prompt,
+                    go_fast: true,
+                    megapixels: "0.25",
+                    num_outputs: 1,
+                    aspect_ratio: "1:1",
+                    output_format: "webp",
+                    output_quality: 100,
+                    num_inference_steps: 4,
+                    disable_safety_checker: true,
+                },
+            }),
+            method: "POST",
+        }).then((res) => res.json());
+        let output = null;
+        while (!output) {
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+            await sleep(200);
+            fetch("https://fooocus.one/api/predictions/" + data.id, {
+                headers,
+                referrer: "https://fooocus.one/fr/apps/flux",
+                referrerPolicy: "strict-origin-when-cross-origin",
+                body: null,
+                method: "GET",
+                mode: "cors",
+                credentials: "include",
+            })
+                .then((res) => res.json())
+                .then((data) => {
+                if (data.output) {
+                    output = data.output[0];
+                }
+            });
+        }
+        fetch(output)
+            .then((response) => {
+            if (!response.ok)
+                throw new Error("Network response was not ok");
+            if (!response.body)
+                throw new Error("Response body is null");
+        })
+            .catch((err) => {
+            console.error(err);
+            res.status(500).send("Error fetching image");
+        });
+        await imageService.downloadImage(output, imageId);
+        statusService.updateImageStatus(imageId, "COMPLETED");
+        res.setHeader("Content-Type", "application/json");
+        res.send({
+            success: true,
+            imageId: imageId,
+            statusUrl: `${config.API_URL}/status/${imageId}`,
+        });
+    }
+    else {
+        const job = {
+            prompt: prompt,
+            loraName: typeof loraName === "string" ? loraName : null,
+            imageId,
+            res,
+            emitter: events,
+        };
+        statusService.updateImageStatus(imageId, "QUEUED");
+        imageQueue.enqueue({
+            job,
+            id: imageId,
+            data: {
+                prompt,
+            },
+        }, puppeteerService.generationPage);
+        res.send({
+            success: true,
+            imageId,
+            statusUrl: `${config.API_URL}/status/${imageId}`,
+        });
+    }
 };
 const quotaRoute = (puppeteerService) => async (_req, res) => {
     const quota = await puppeteerService.getGenerationPage()?.evaluate(() => {
@@ -99,7 +171,7 @@ const setupRoutes = (app, config, puppeteerService, imageService, statusService,
     app.get("/status/:imageId", statusRoute(statusService));
     app.get("/search-loras", searchLoraRoute(loraSearchQueue, imageService, puppeteerService));
     app.get("/generateImage", generateImageRoute(imageQueue, config, imageService, events, puppeteerService, statusService));
-    app.get("/quota", quotaRoute(puppeteerService));
+    app.get("/quota", (req, res) => quotaRoute(puppeteerService)(req, res));
 };
 exports.setupRoutes = setupRoutes;
 exports.default = exports.setupRoutes;

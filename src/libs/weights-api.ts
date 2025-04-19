@@ -170,7 +170,7 @@ export class WeightsApi {
         callback(status, { imageId });
       }
 
-      if(status === "COMPLETED") {
+      if (status === "COMPLETED") {
         break;
       }
 
