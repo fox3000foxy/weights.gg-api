@@ -73,88 +73,90 @@ const generateImageRoute = (imageQueue, config, imageService, events, puppeteerS
     }
     const { prompt, loraName } = req.query;
     const imageId = imageService.generateImageId();
-    // if (!loraName || typeof loraName !== "string") {
-    //   const headers = {
-    //     "content-type": "application/json",
-    //   };
-    //   const { data } = await fetch("https://fooocus.one/api/predictions", {
-    //     headers,
-    //     body: JSON.stringify({
-    //       model: "black-forest-labs/flux-schnell",
-    //       input: {
-    //         prompt: req.query.prompt,
-    //         go_fast: true,
-    //         megapixels: "0.25",
-    //         num_outputs: 1,
-    //         aspect_ratio: "1:1",
-    //         output_format: "webp",
-    //         output_quality: 100,
-    //         num_inference_steps: 4,
-    //         disable_safety_checker: true,
-    //       },
-    //     }),
-    //     method: "POST",
-    //   }).then((res) => res.json());
-    //   let output = null;
-    //   while (!output) {
-    //     const sleep = (ms: number) =>
-    //       new Promise((resolve) => setTimeout(resolve, ms));
-    //     await sleep(200);
-    //     fetch("https://fooocus.one/api/predictions/" + data.id, {
-    //       headers,
-    //       referrer: "https://fooocus.one/fr/apps/flux",
-    //       referrerPolicy: "strict-origin-when-cross-origin",
-    //       body: null,
-    //       method: "GET",
-    //       mode: "cors",
-    //       credentials: "include",
-    //     })
-    //       .then((res) => res.json())
-    //       .then((data) => {
-    //         if (data.output) {
-    //           output = data.output[0];
-    //         }
-    //       });
-    //   }
-    //   fetch(output)
-    //     .then((response) => {
-    //       if (!response.ok) throw new Error("Network response was not ok");
-    //       if (!response.body) throw new Error("Response body is null");
-    //     })
-    //     .catch((err) => {
-    //       console.error(err);
-    //       res.status(500).send("Error fetching image");
-    //     });
-    //   await imageService.downloadImage(output, imageId);
-    //   statusService.updateImageStatus(imageId, "COMPLETED");
-    //   res.setHeader("Content-Type", "application/json");
-    //   res.send({
-    //     success: true,
-    //     imageId: imageId,
-    //     statusUrl: `${config.API_URL}/status/${imageId}`,
-    //   });
-    // } else {
-    const job = {
-        prompt: prompt,
-        loraName: typeof loraName === "string" ? loraName : null,
-        imageId,
-        res,
-        emitter: events,
-    };
-    statusService.updateImageStatus(imageId, "QUEUED");
-    imageQueue.enqueue({
-        job,
-        id: imageId,
-        data: {
-            prompt,
-        },
-    }, puppeteerService.generationPage);
-    res.send({
-        success: true,
-        imageId,
-        statusUrl: `${config.API_URL}/status/${imageId}`,
-    });
-    // }
+    if (!loraName || typeof loraName !== "string" && process.env.FOOOCUS_ENABLED) {
+        const headers = {
+            "content-type": "application/json",
+        };
+        const { data } = await fetch("https://fooocus.one/api/predictions", {
+            headers,
+            body: JSON.stringify({
+                model: "black-forest-labs/flux-schnell",
+                input: {
+                    prompt: req.query.prompt,
+                    go_fast: true,
+                    megapixels: "0.25",
+                    num_outputs: 1,
+                    aspect_ratio: "1:1",
+                    output_format: "webp",
+                    output_quality: 100,
+                    num_inference_steps: 4,
+                    disable_safety_checker: true,
+                },
+            }),
+            method: "POST",
+        }).then((res) => res.json());
+        let output = null;
+        while (!output) {
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+            await sleep(200);
+            fetch("https://fooocus.one/api/predictions/" + data.id, {
+                headers,
+                referrer: "https://fooocus.one/fr/apps/flux",
+                referrerPolicy: "strict-origin-when-cross-origin",
+                body: null,
+                method: "GET",
+                mode: "cors",
+                credentials: "include",
+            })
+                .then((res) => res.json())
+                .then((data) => {
+                if (data.output) {
+                    output = data.output[0];
+                }
+            });
+        }
+        fetch(output)
+            .then((response) => {
+            if (!response.ok)
+                throw new Error("Network response was not ok");
+            if (!response.body)
+                throw new Error("Response body is null");
+        })
+            .catch((err) => {
+            console.error(err);
+            res.status(500).send("Error fetching image");
+        });
+        await imageService.downloadImage(output, imageId);
+        statusService.updateImageStatus(imageId, "COMPLETED");
+        res.setHeader("Content-Type", "application/json");
+        res.send({
+            success: true,
+            imageId: imageId,
+            statusUrl: `${config.API_URL}/status/${imageId}`,
+        });
+    }
+    else {
+        const job = {
+            prompt: prompt,
+            loraName: typeof loraName === "string" ? loraName : null,
+            imageId,
+            res,
+            emitter: events,
+        };
+        statusService.updateImageStatus(imageId, "QUEUED");
+        imageQueue.enqueue({
+            job,
+            id: imageId,
+            data: {
+                prompt,
+            },
+        }, puppeteerService.generationPage);
+        res.send({
+            success: true,
+            imageId,
+            statusUrl: `${config.API_URL}/status/${imageId}`,
+        });
+    }
 };
 const quotaRoute = (puppeteerService) => async (_req, res) => {
     const quota = await puppeteerService.getGenerationPage()?.evaluate(() => {
