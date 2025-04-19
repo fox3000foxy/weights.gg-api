@@ -127,7 +127,8 @@ class WeightsApi:
         status_response = await self.get_status(image_id)
         status = status_response.get('status')
         callback(status, {'imageId': image_id})
-
+        if status == 'COMPLETED':
+            return status_response
         old_modified_date = None
         while True:
             await asyncio.sleep(0.1)
