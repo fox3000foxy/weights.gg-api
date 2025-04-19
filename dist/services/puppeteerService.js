@@ -10,7 +10,11 @@ class PuppeteerService {
     async initialize() {
         const connectOptions = {
             headless: false,
-            args: [],
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage'
+            ],
             customConfig: {},
             turnstile: true,
             connectOption: {},
@@ -45,7 +49,11 @@ class PuppeteerService {
             await page.close();
             const { page: newPage } = await (0, puppeteer_real_browser_1.connect)({
                 headless: false,
-                args: [],
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage'
+                ],
                 customConfig: {},
                 turnstile: true,
                 connectOption: {},

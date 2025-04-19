@@ -14,7 +14,11 @@ export class PuppeteerService {
   public async initialize(): Promise<void> {
     const connectOptions: ConnectOptions = {
       headless: false,
-      args: [],
+      args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage'
+      ],
       customConfig: {},
       turnstile: true,
       connectOption: {},
@@ -58,7 +62,11 @@ export class PuppeteerService {
       await page.close();
       const { page: newPage } = await connect({
         headless: false,
-        args: [],
+        args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage'
+        ],
         customConfig: {},
         turnstile: true,
         connectOption: {},
