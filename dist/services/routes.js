@@ -83,7 +83,6 @@ const generateImageRoute = (imageQueue, config, imageService, events, puppeteerS
     res.send({
         success: true,
         imageId,
-        imageUrl: `${config.API_URL}/${imageId}.jpg`,
         statusUrl: `${config.API_URL}/status/${imageId}`,
     });
 };
