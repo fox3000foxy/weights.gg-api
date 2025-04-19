@@ -60,12 +60,13 @@ class WeightsApi {
                 const statusResponse = await this.getStatus({ imageId });
                 const { status } = statusResponse;
                 const lastModifiedDate = statusResponse.lastModifiedDate || null;
+                const error = statusResponse.error || null;
                 if (oldModifiedDate !== lastModifiedDate) {
                     oldModifiedDate = lastModifiedDate;
                     callback(status, { imageId });
                 }
                 if (status === "FAILED") {
-                    throw new Error("Image generation failed");
+                    throw new Error("Image generation failed: " + error);
                 }
             }
             return statusResponse;
