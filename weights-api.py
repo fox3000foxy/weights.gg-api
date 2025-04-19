@@ -125,6 +125,7 @@ class WeightsApi:
         while True:
             status_response = await self.get_status(image_id)
             status = status_response.get('status')
+            error = status_response.get('error')
             last_modified_date = status_response.get('lastModifiedDate')
             
             if old_modified_date != last_modified_date:
@@ -135,7 +136,7 @@ class WeightsApi:
                 break
             
             if status == 'FAILED':
-                raise Exception("Image generation failed")
+                raise Exception(f"Image generation failed. Error: {error}")
             
             await asyncio.sleep(0.1)
 
