@@ -73,7 +73,7 @@ const generateImageRoute = (imageQueue, config, imageService, events, puppeteerS
     }
     const { prompt, loraName } = req.query;
     const imageId = imageService.generateImageId();
-    if (!loraName || typeof loraName !== "string" && process.env.FOOOCUS_ENABLED) {
+    if (process.env.FOOOCUS_ENABLED && !loraName || typeof loraName !== "string") {
         const headers = {
             "content-type": "application/json",
         };
