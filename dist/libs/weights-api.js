@@ -55,7 +55,7 @@ class WeightsApi {
             const { status } = statusResponse;
             callback(status, { imageId });
             let oldModifiedDate = null;
-            while (status !== "COMPLETED") {
+            while (true) {
                 await new Promise((resolve) => setTimeout(resolve, 100)); // Wait for 100 milliseconds
                 const statusResponse = await this.getStatus({ imageId });
                 const { status } = statusResponse;
@@ -64,6 +64,9 @@ class WeightsApi {
                 if (oldModifiedDate !== lastModifiedDate) {
                     oldModifiedDate = lastModifiedDate;
                     callback(status, { imageId });
+                }
+                if (status === "COMPLETED") {
+                    break;
                 }
                 if (status === "FAILED") {
                     throw new Error("Image generation failed: " + error);
