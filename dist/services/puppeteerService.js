@@ -6,65 +6,154 @@ class PuppeteerService {
     constructor() {
         this.generationPage = null;
         this.loraSearchPage = null;
+        this.browser = null;
     }
     async initialize() {
         const connectOptions = {
             headless: false,
             args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage'
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--enable-features=NetworkService",
+                "--disable-background-timer-throttling",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-renderer-backgrounding",
+                "--disable-accelerated-2d-canvas",
+                "--disable-default-apps",
+                "--disable-extensions",
+                "--disable-sync",
+                "--metrics-recording-only",
+                "--mute-audio",
+                "--no-first-run",
+                "--no-zygote",
+                "--safebrowsing-disable-auto-update",
+                "--disable-javascript-harmony-shipping",
+                "--disable-site-isolation-trials",
+                "--disable-features=IsolateOrigins,site-per-process",
+                "--disable-threaded-scrolling",
+                "--disable-threaded-animation",
+                "--disable-composited-antialiasing",
             ],
-            customConfig: {},
+            customConfig: {
+                targetCPU: 50,
+                maxConcurrency: 2 // Limite le nombre d'opérations concurrentes
+            },
             turnstile: true,
             connectOption: {},
             disableXvfb: false,
             ignoreAllFlags: false,
         };
-        const [{ page: newPage }, { page: newLoraSearchPage }] = await Promise.all([
-            (0, puppeteer_real_browser_1.connect)(connectOptions),
-            (0, puppeteer_real_browser_1.connect)(connectOptions),
+        const { browser } = await (0, puppeteer_real_browser_1.connect)(connectOptions);
+        this.browser = browser;
+        // Créer deux contextes isolés
+        const loraContext = await browser.defaultBrowserContext();
+        const generationContext = await browser.createBrowserContext();
+        // Créer les pages dans leurs contextes respectifs
+        this.loraSearchPage = await loraContext.newPage();
+        this.generationPage = await generationContext.newPage();
+        // Configurer les pages
+        await Promise.all([
+            this._setupPage(this.generationPage),
+            this._setupPage(this.loraSearchPage),
         ]);
-        this.generationPage = newPage;
-        this.loraSearchPage = newLoraSearchPage;
     }
-    async onStart(page, cookie) {
-        await page.goto("https://weights.gg/create");
-        await page.setCookie({
-            name: "next-auth.session-token",
-            value: cookie,
-            secure: true,
-            httpOnly: false,
-        });
-        await page.goto("https://weights.gg/create", { waitUntil: "load" });
-        await page.evaluate(() => {
-            const button = document.querySelector("#__next > main > div > div > div > div.my-4.flex.w-full.flex-col.gap-8 > div:nth-child(4) > div:nth-child(1) > div.flex.w-full.gap-2 > button");
-            if (button) {
-                button.click();
+    async _optimizePage(page, options) {
+        await page.setRequestInterception(true);
+        page.on("request", (req) => {
+            const blockTypes = [
+                "stylesheet",
+                "font",
+                "media",
+                "other",
+                // "websocket",
+                "manifest"
+            ];
+            if (options?.blockImages) {
+                blockTypes.push("image");
+            }
+            if (blockTypes.includes(req.resourceType()) || req.url().includes('analytics')) {
+                req.abort();
+            }
+            else {
+                req.continue();
             }
         });
+        // Désactiver les animations et transitions CSS
+        await page.addStyleTag({
+            content: `
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      `
+        });
     }
-    async restartPage(page) {
+    async _setupPage(page, options) {
+        // Configuration de base
+        await page.setDefaultNavigationTimeout(30000);
+        await page.setDefaultTimeout(30000);
+        await page.setViewport({ width: 1280, height: 800 });
+        // Optimisation si nécessaire
+        if (options?.blockImages) {
+            await this._optimizePage(page, options);
+        }
+    }
+    async onStart(page, cookie) {
         try {
-            await page.close();
-            const { page: newPage } = await (0, puppeteer_real_browser_1.connect)({
-                headless: false,
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage'
-                ],
-                customConfig: {},
-                turnstile: true,
-                connectOption: {},
-                disableXvfb: false,
-                ignoreAllFlags: false,
+            await page.goto("https://weights.gg/create", {
+                timeout: 30000,
             });
+            await page.setCookie({
+                name: "next-auth.session-token",
+                value: cookie,
+                secure: true,
+                httpOnly: false,
+            });
+            await page.goto("https://weights.gg/create", {
+                waitUntil: 'networkidle2',
+                timeout: 30000,
+            });
+            const success = await page.evaluate(() => {
+                const button = document.querySelector("#__next > main > div > div > div > div.my-4.flex.w-full.flex-col.gap-8 > div:nth-child(4) > div:nth-child(1) > div.flex.w-full.gap-2 > button");
+                if (button) {
+                    button.click();
+                    return true;
+                }
+                return false;
+            });
+            if (!success) {
+                console.warn("Button not found or click failed");
+            }
+        }
+        catch (error) {
+            console.error("Error during page initialization:", error);
+            throw error;
+        }
+    }
+    async restartPage(oldPage) {
+        if (!this.browser)
+            throw new Error("Browser not initialized.");
+        try {
+            const context = await this.browser.createBrowserContext();
+            const newPage = await context.newPage();
+            await this._setupPage(newPage, {
+                blockImages: oldPage === this.loraSearchPage,
+            });
+            if (oldPage === this.loraSearchPage) {
+                await oldPage.browserContext().close();
+                this.loraSearchPage = newPage;
+            }
+            else if (oldPage === this.generationPage) {
+                await oldPage.browserContext().close();
+                this.generationPage = newPage;
+            }
             return newPage;
         }
-        catch (restartError) {
-            console.error("Failed to restart the page:", restartError);
-            throw restartError;
+        catch (err) {
+            console.error("Failed to restart the page:", err);
+            throw err;
         }
     }
     getGenerationPage() {
@@ -72,6 +161,14 @@ class PuppeteerService {
     }
     getLoraSearchPage() {
         return this.loraSearchPage;
+    }
+    async close() {
+        try {
+            await this.browser?.close();
+        }
+        catch (err) {
+            console.warn("Error while closing browser:", err);
+        }
     }
 }
 exports.PuppeteerService = PuppeteerService;

@@ -29,9 +29,18 @@ export class PuppeteerService {
         "--mute-audio",
         "--no-first-run",
         "--no-zygote",
-        "--safebrowsing-disable-auto-update"
+        "--safebrowsing-disable-auto-update",
+        "--disable-javascript-harmony-shipping",
+        "--disable-site-isolation-trials",
+        "--disable-features=IsolateOrigins,site-per-process",
+        "--disable-threaded-scrolling",
+        "--disable-threaded-animation",
+        "--disable-composited-antialiasing",
       ],
-      customConfig: {},
+      customConfig: {
+        targetCPU: 50, // Limite l'utilisation CPU
+        maxConcurrency: 2 // Limite le nombre d'opérations concurrentes
+      },
       turnstile: true,
       connectOption: {},
       disableXvfb: false,
@@ -42,7 +51,7 @@ export class PuppeteerService {
     this.browser = browser;
 
     // Créer deux contextes isolés
-    const loraContext = await browser.createBrowserContext();
+    const loraContext = await browser.defaultBrowserContext();
     const generationContext = await browser.createBrowserContext();
 
     // Créer les pages dans leurs contextes respectifs
@@ -59,15 +68,34 @@ export class PuppeteerService {
   private async _optimizePage(page: Page, options?: { blockImages?: boolean }) {
     await page.setRequestInterception(true);
     page.on("request", (req) => {
-      const blockTypes = ["stylesheet", "font", "media"];
+      const blockTypes = [
+        "stylesheet", 
+        "font", 
+        "media",
+        "other", // Bloquer les ressources non essentielles
+        // "websocket",
+        "manifest"
+      ];
+      
       if (options?.blockImages) {
         blockTypes.push("image");
       }
-      if (blockTypes.includes(req.resourceType())) {
+
+      if (blockTypes.includes(req.resourceType()) || req.url().includes('analytics')) {
         req.abort();
       } else {
         req.continue();
       }
+    });
+
+    // Désactiver les animations et transitions CSS
+    await page.addStyleTag({
+      content: `
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      `
     });
   }
 
@@ -86,7 +114,6 @@ export class PuppeteerService {
   public async onStart(page: Page, cookie: string): Promise<void> {
     try {
       await page.goto("https://weights.gg/create", {
-        waitUntil: "networkidle0",
         timeout: 30000,
       });
 
@@ -98,7 +125,7 @@ export class PuppeteerService {
       });
 
       await page.goto("https://weights.gg/create", {
-        waitUntil: "networkidle0",
+        waitUntil: 'networkidle2',
         timeout: 30000,
       });
 
