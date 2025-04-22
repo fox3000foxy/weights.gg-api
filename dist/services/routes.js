@@ -72,6 +72,10 @@ const generateImageRoute = (imageQueue, config, imageService, events, puppeteerS
         return;
     }
     const { prompt, loraName } = req.query;
+    if (!prompt || typeof prompt !== "string" || prompt.length < 10) {
+        res.status(400).send({ error: "Prompt is too short" });
+        return;
+    }
     const imageId = imageService.generateImageId();
     if (process.env.FOOOCUS_ENABLED && (!loraName || typeof loraName !== "string")) {
         const headers = {

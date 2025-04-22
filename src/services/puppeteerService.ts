@@ -38,7 +38,7 @@ export class PuppeteerService {
         "--disable-composited-antialiasing",
       ],
       customConfig: {
-        targetCPU: 50, // Limite l'utilisation CPU
+        targetCPU: 30, // Limite l'utilisation CPU
         maxConcurrency: 2 // Limite le nombre d'opérations concurrentes
       },
       turnstile: true,
@@ -66,36 +66,52 @@ export class PuppeteerService {
   }
 
   private async _optimizePage(page: Page, options?: { blockImages?: boolean }) {
+    // Bloquer plus de ressources non essentielles
     await page.setRequestInterception(true);
     page.on("request", (req) => {
       const blockTypes = [
         "stylesheet", 
         "font", 
         "media",
-        "other", // Bloquer les ressources non essentielles
-        // "websocket",
-        "manifest"
+        "other",
+        "manifest",
+        "script", // Bloquer les scripts non essentiels
+        "xhr",    // Bloquer les requêtes XHR non essentielles
+        "fetch"   // Bloquer les fetch non essentiels
       ];
       
       if (options?.blockImages) {
         blockTypes.push("image");
       }
 
-      if (blockTypes.includes(req.resourceType()) || req.url().includes('analytics')) {
-        req.abort();
-      } else {
-        req.continue();
-      }
+      // Liste de domaines à bloquer
+      const blockedDomains = [
+        'google-analytics.com',
+        'googletagmanager.com',
+        'doubleclick.net',
+        'facebook.com',
+        'analytics'
+      ];
+
+      const shouldBlock = 
+        blockTypes.includes(req.resourceType()) || 
+        blockedDomains.some(domain => req.url().includes(domain));
+
+        if(shouldBlock) {
+          // console.log(`Blocked request to: ${req.url()}`);
+          req.abort();
+        }
+        else {
+          req.continue();
+        }
     });
 
-    // Désactiver les animations et transitions CSS
-    await page.addStyleTag({
-      content: `
-        * {
-          animation: none !important;
-          transition: none !important;
-        }
-      `
+    // Désactiver plus de fonctionnalités gourmandes en CPU
+    await page.evaluate(() => {
+      window.requestAnimationFrame = () => 0;
+      window.cancelAnimationFrame = () => {};
+      // window.setTimeout = () => 0 as number;
+      // window.setInterval = () => 0 as number;
     });
   }
 
