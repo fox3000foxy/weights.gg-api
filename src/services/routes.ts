@@ -63,28 +63,21 @@ const searchLoraRoute =
       return;
     }
 
-    res.send({
-      status: "HS",
-      message: "Searching for Loras is in maintenance...",
-    });
-
-    // return;
-
-    // const loraName = decodeURIComponent(query);
-    // const searchId = imageService.generateImageId();
-    // // loraSearchQueue.enqueueSearch(
-    // //   {
-    // //     job: {
-    // //       query: loraName,
-    // //       res,
-    // //     },
-    // //     id: searchId,
-    // //     data: {
-    // //       query: loraName,
-    // //     },
-    // //   },
-    // //   puppeteerService.loraSearchPage as Page,
-    // // );
+    const loraName = decodeURIComponent(query);
+    const searchId = imageService.generateImageId();
+    loraSearchQueue.enqueueSearch(
+      {
+        job: {
+          query: loraName,
+          res,
+        },
+        id: searchId,
+        data: {
+          query: loraName,
+        },
+      },
+      puppeteerService.loraSearchPage as Page,
+    );
   };
 
 const generateImageRoute =
@@ -126,7 +119,7 @@ const generateImageRoute =
     const imageId = imageService.generateImageId();
 
     if (process.env.FOOOCUS_ENABLED && (!loraName || typeof loraName !== "string")) {
-      const headers = {
+    const headers = {
         "content-type": "application/json",
       };
 
