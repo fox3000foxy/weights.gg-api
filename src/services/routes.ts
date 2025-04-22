@@ -44,6 +44,7 @@ const searchLoraRoute =
     puppeteerService: PuppeteerService,
   ) =>
   async (req: Request, res: Response) => {
+
     if (!searchTimer) {
       searchTimer = 100;
     } else {
@@ -62,21 +63,28 @@ const searchLoraRoute =
       return;
     }
 
-    const loraName = decodeURIComponent(query);
-    const searchId = imageService.generateImageId();
-    loraSearchQueue.enqueueSearch(
-      {
-        job: {
-          query: loraName,
-          res,
-        },
-        id: searchId,
-        data: {
-          query: loraName,
-        },
-      },
-      puppeteerService.loraSearchPage as Page,
-    );
+    res.send({
+      status: "HS",
+      message: "Searching for Loras is in maintenance...",
+    });
+
+    // return;
+
+    // const loraName = decodeURIComponent(query);
+    // const searchId = imageService.generateImageId();
+    // // loraSearchQueue.enqueueSearch(
+    // //   {
+    // //     job: {
+    // //       query: loraName,
+    // //       res,
+    // //     },
+    // //     id: searchId,
+    // //     data: {
+    // //       query: loraName,
+    // //     },
+    // //   },
+    // //   puppeteerService.loraSearchPage as Page,
+    // // );
   };
 
 const generateImageRoute =
