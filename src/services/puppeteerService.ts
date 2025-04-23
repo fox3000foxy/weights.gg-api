@@ -39,7 +39,7 @@ export class PuppeteerService {
       ],
       customConfig: {
         targetCPU: 30, // Limite l'utilisation CPU
-        maxConcurrency: 2 // Limite le nombre d'opérations concurrentes
+        maxConcurrency: 2, // Limite le nombre d'opérations concurrentes
       },
       turnstile: true,
       connectOption: {},
@@ -70,40 +70,39 @@ export class PuppeteerService {
     await page.setRequestInterception(true);
     page.on("request", (req) => {
       const blockTypes = [
-        "stylesheet", 
-        "font", 
+        "stylesheet",
+        "font",
         "media",
         "other",
         "manifest",
         "script", // Bloquer les scripts non essentiels
-        "xhr",    // Bloquer les requêtes XHR non essentielles
-        "fetch"   // Bloquer les fetch non essentiels
+        "xhr", // Bloquer les requêtes XHR non essentielles
+        "fetch", // Bloquer les fetch non essentiels
       ];
-      
+
       if (options?.blockImages) {
         blockTypes.push("image");
       }
 
       // Liste de domaines à bloquer
       const blockedDomains = [
-        'google-analytics.com',
-        'googletagmanager.com',
-        'doubleclick.net',
-        'facebook.com',
-        'analytics'
+        "google-analytics.com",
+        "googletagmanager.com",
+        "doubleclick.net",
+        "facebook.com",
+        "analytics",
       ];
 
-      const shouldBlock = 
-        blockTypes.includes(req.resourceType()) || 
-        blockedDomains.some(domain => req.url().includes(domain));
+      const shouldBlock =
+        blockTypes.includes(req.resourceType()) ||
+        blockedDomains.some((domain) => req.url().includes(domain));
 
-        if(shouldBlock) {
-          // console.log(`Blocked request to: ${req.url()}`);
-          req.abort();
-        }
-        else {
-          req.continue();
-        }
+      if (shouldBlock) {
+        // console.log(`Blocked request to: ${req.url()}`);
+        req.abort();
+      } else {
+        req.continue();
+      }
     });
 
     // Désactiver plus de fonctionnalités gourmandes en CPU
@@ -115,16 +114,34 @@ export class PuppeteerService {
     });
   }
 
-  private async _setupPage(page: Page, options?: { blockImages?: boolean }): Promise<void> {
-    // Configuration de base
-    await page.setDefaultNavigationTimeout(30000);
-    await page.setDefaultTimeout(30000);
-    await page.setViewport({ width: 1280, height: 800 });
+  private async _setupPage(
+    page: Page,
+    options?: { blockImages?: boolean },
+  ): Promise<void> {
+    await page.setCacheEnabled(false); // Désactiver le cache
+    await page.setRequestInterception(true);
 
-    // Optimisation si nécessaire
-    if (options?.blockImages) {
-      await this._optimizePage(page, options);
-    }
+    const blockedResources = new Set(["image", "stylesheet", "font", "media"]);
+    const blockedDomains = new Set([
+      "google-analytics.com",
+      "googletagmanager.com",
+    ]);
+
+    page.on("request", (request) => {
+      const shouldBlock =
+        blockedResources.has(request.resourceType()) ||
+        blockedDomains.has(new URL(request.url()).hostname);
+
+      if (options?.blockImages && request.resourceType() === "image") {
+        request.abort();
+      } else {
+        if (shouldBlock) {
+          request.abort();
+        } else {
+          request.continue();
+        }
+      }
+    });
   }
 
   public async onStart(page: Page, cookie: string): Promise<void> {
@@ -141,13 +158,13 @@ export class PuppeteerService {
       });
 
       await page.goto("https://weights.gg/create", {
-        waitUntil: 'networkidle2',
+        waitUntil: "networkidle2",
         timeout: 30000,
       });
 
       const success = await page.evaluate(() => {
         const button = document.querySelector(
-          "#__next > main > div > div > div > div.my-4.flex.w-full.flex-col.gap-8 > div:nth-child(4) > div:nth-child(1) > div.flex.w-full.gap-2 > button"
+          "#__next > main > div > div > div > div.my-4.flex.w-full.flex-col.gap-8 > div:nth-child(4) > div:nth-child(1) > div.flex.w-full.gap-2 > button",
         );
         if (button) {
           (button as HTMLElement).click();

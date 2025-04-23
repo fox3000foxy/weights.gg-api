@@ -1,70 +1,44 @@
 import { Page } from "rebrowser-puppeteer-core";
-import {
-  JobQueueItem,
-  JobSearchQueueItem,
-  ProcessorFunction,
-  SearchProcessorFunction,
-} from "../types";
+import { EventEmitter } from "events";
+import { Job, LoraSearchJob, QueueItem } from "types";
 
-export class Queue {
-  public queue: JobQueueItem[];
-  public searchingQueue: JobSearchQueueItem[];
+export class Queue<T> extends EventEmitter {
+  private queue: QueueItem<T>[];
   private maxSize: number;
-  public processing: boolean;
-  public processingSearch: boolean;
-  public processor: ProcessorFunction | null;
-  public processorSearch: SearchProcessorFunction | null;
+  private processing: boolean;
+  private processor: ((job: T, page: Page) => Promise<void>) | null;
 
   constructor(maxSize: number = 10) {
+    super();
     this.queue = [];
-    this.searchingQueue = [];
     this.maxSize = maxSize;
     this.processing = false;
-    this.processingSearch = false;
     this.processor = null;
-    this.processorSearch = null;
   }
 
-  public enqueue(item: JobQueueItem, page: Page): void {
+  public enqueue(item: QueueItem<T>, page: Page): void {
     if (this.queue.length >= this.maxSize) {
+      this.emit("error", new Error("Queue is full"));
       throw new Error("Queue is full");
     }
     this.queue.push(item);
+    this.emit("enqueued", item);
 
     if (!this.processing && this.processor) {
       this.process(this.processor, page);
     }
   }
 
-  public enqueueSearch(item: JobSearchQueueItem, page: Page): void {
-    if (this.searchingQueue.length >= this.maxSize) {
-      throw new Error("Queue is full");
-    }
-    this.searchingQueue.push(item);
-
-    if (!this.processingSearch && this.processorSearch) {
-      this.processSearch(this.processorSearch, page);
-    }
-  }
-
-  public dequeue(): JobQueueItem | undefined {
+  public dequeue(): QueueItem<T> | undefined {
     return this.queue.shift();
-  }
-
-  public dequeueSearch(): JobSearchQueueItem | undefined {
-    return this.searchingQueue.shift();
   }
 
   public isEmpty(): boolean {
     return this.queue.length === 0;
   }
 
-  public isEmptySearch(): boolean {
-    return this.searchingQueue.length === 0;
-  }
-
   public async process(
-    processor: ProcessorFunction,
+    processor: (job: T, page: Page) => Promise<void>,
     page: Page,
   ): Promise<void> {
     if (this.processing) return;
@@ -75,40 +49,42 @@ export class Queue {
     try {
       while (!this.isEmpty()) {
         const item = this.dequeue();
-        if (item?.id === undefined) {
+        if (!item?.id) {
           console.error("Item ID is undefined");
           continue;
         }
-        if (item) {
-          await processor(item.job, page);
-        }
+        await processor(item.job, page);
       }
+    } catch (error) {
+      console.error("Error processing queue item:", error);
     } finally {
       this.processing = false;
     }
   }
 
-  public async processSearch(
-    processorSearch: SearchProcessorFunction,
-    page: Page,
-  ): Promise<void> {
-    if (this.processingSearch) return;
+  // Additional methods
+  public clear(): void {
+    this.queue = [];
+  }
 
-    this.processorSearch = processorSearch;
-    this.processingSearch = true;
+  public get size(): number {
+    return this.queue.length;
+  }
 
-    try {
-      while (!this.isEmptySearch()) {
-        const item = this.dequeueSearch();
-        if (item) {
-          await processorSearch(item.job, page);
-        }
-      }
-    } finally {
-      this.processingSearch = false;
+  public get isProcessing(): boolean {
+    return this.processing;
+  }
+
+  public pause(): void {
+    this.processing = false;
+  }
+
+  public resume(page: Page): void {
+    if (this.processor && !this.processing) {
+      this.process(this.processor, page);
     }
   }
 }
 
-export default Queue;
-export { ProcessorFunction };
+export class ImageQueue extends Queue<Job> {}
+export class SearchQueue extends Queue<LoraSearchJob> {}

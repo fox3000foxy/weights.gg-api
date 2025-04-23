@@ -14,6 +14,12 @@ export interface ConnectOptions {
   ignoreAllFlags: boolean;
 }
 
+export interface QueueItem<T> {
+  id: string;
+  data: object;
+  job: T;
+}
+
 export const EVENT_TYPES = {
   PREVIEW_UPDATE: "preview:update",
   STATUS_UPDATE: "status:update",

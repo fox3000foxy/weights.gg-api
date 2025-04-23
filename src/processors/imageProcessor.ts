@@ -3,7 +3,7 @@ import { PuppeteerService } from "../services/puppeteerService";
 import { ImageService } from "../services/imageService";
 import { LoraService } from "../services/loraService";
 import { StatusService } from "../services/statusService";
-import { Queue } from "../services/queueService";
+import { ImageQueue } from "../services/queueService";
 import { Config } from "../config/index";
 import { generateImage } from "../services/imageGeneration";
 import { Page } from "rebrowser-puppeteer-core";
@@ -19,6 +19,8 @@ interface Job {
 
 export class ImageProcessor {
   private oldLoraName: string | null = null;
+  private retryCount = new Map<string, number>();
+  private maxRetries = 3;
 
   constructor(
     private puppeteerService: PuppeteerService,
@@ -26,11 +28,12 @@ export class ImageProcessor {
     private loraService: LoraService,
     private statusService: StatusService,
     private config: Config,
-    private imageQueue: Queue,
+    private imageQueue: ImageQueue,
   ) {}
 
-  async processImage(job: Job, page: Page) {
+  async processImage(job: Job, page: Page): Promise<void> {
     const { prompt, loraName, imageId, emitter } = job;
+    const retries = this.retryCount.get(imageId) || 0;
 
     if (!page) {
       console.error("Page is null, cannot generate image.");
@@ -40,6 +43,23 @@ export class ImageProcessor {
 
     try {
       this.statusService.updateImageStatus(imageId, "STARTING");
+
+      // Vérifier si la page est utilisable, sinon la redémarrer
+      const isPageUsable = await page
+        .evaluate(() => {
+          return (
+            document.readyState === "complete" &&
+            !document.querySelector(".error-boundary") &&
+            !document.querySelector(".Toastify__toast--error")
+          );
+        })
+        .catch(() => false);
+
+      if (!isPageUsable) {
+        console.log("Page is in an unstable state, restarting...");
+        await this.restartPageAndInit(page);
+      }
+
       await this.handleLora(loraName, page, job);
       const result = await generateImage(
         decodeURIComponent(prompt),
@@ -48,17 +68,34 @@ export class ImageProcessor {
         imageId,
       );
       await this.handleImageResult(result, imageId);
+
+      // Réinitialiser le compteur de retry en cas de succès
+      this.retryCount.delete(imageId);
     } catch (error: Error | unknown) {
       if (error instanceof Error) {
         console.error("Error generating image:", error);
-        this.statusService.updateImageStatus(imageId, "FAILED", error.message);
-        console.log("Refreshing the page after an error");
-        this.puppeteerService.generationPage =
-          await this.puppeteerService.restartPage(page);
-        await this.puppeteerService.onStart(
-          this.puppeteerService.generationPage,
-          this.config.WEIGHTS_GG_COOKIE,
-        );
+
+        // Implémenter un système de retry
+        if (retries < this.maxRetries) {
+          console.log(
+            `Retrying job ${imageId}, attempt ${retries + 1}/${this.maxRetries}`,
+          );
+          this.retryCount.set(imageId, retries + 1);
+
+          // Attendre avant de réessayer
+          await new Promise((r) => setTimeout(r, 2000));
+
+          // Redémarrer la page et réessayer
+          await this.restartPageAndInit(page);
+          return this.processImage(job, page);
+        } else {
+          this.statusService.updateImageStatus(
+            imageId,
+            "FAILED",
+            `Failed after ${this.maxRetries} attempts: ${error.message}`,
+          );
+          this.retryCount.delete(imageId);
+        }
       }
     }
   }
@@ -100,13 +137,8 @@ export class ImageProcessor {
     if (result.error) {
       console.error("Error generating image:", result.error);
       this.statusService.updateImageStatus(imageId, "FAILED", result.error);
-      this.puppeteerService.generationPage =
-        await this.puppeteerService.restartPage(
-          this.puppeteerService.generationPage as Page,
-        );
-      await this.puppeteerService.onStart(
-        this.puppeteerService.generationPage,
-        this.config.WEIGHTS_GG_COOKIE,
+      await this.restartPageAndInit(
+        this.puppeteerService.generationPage as Page,
       );
     } else {
       try {
@@ -135,6 +167,15 @@ export class ImageProcessor {
       }
       this.statusService.updateImageStatus(imageId, "COMPLETED");
     }
+  }
+
+  private async restartPageAndInit(page: Page) {
+    this.puppeteerService.generationPage =
+      await this.puppeteerService.restartPage(page);
+    await this.puppeteerService.onStart(
+      this.puppeteerService.generationPage,
+      this.config.WEIGHTS_GG_COOKIE,
+    );
   }
 }
 

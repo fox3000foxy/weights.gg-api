@@ -158,7 +158,7 @@ export class WeightsApi {
     const statusResponse = await this.getStatus({ imageId });
     const { status } = statusResponse;
     callback(status, { imageId });
-    if(status === "COMPLETED") {
+    if (status === "COMPLETED") {
       return statusResponse;
     }
     let oldModifiedDate = null;

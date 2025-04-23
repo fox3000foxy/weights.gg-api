@@ -4,9 +4,10 @@ import { Config } from "../config";
 import { PuppeteerService } from "./puppeteerService";
 import { ImageService } from "./imageService";
 import { StatusService } from "./statusService";
-import { Queue } from "./queueService";
+import { ImageQueue, SearchQueue } from "./queueService";
 import { Page } from "rebrowser-puppeteer-core";
 import { GenerateImageJob } from "../types";
+import rateLimit from "express-rate-limit";
 
 let generateTimer: number = 0;
 let searchTimer: number = 0;
@@ -39,12 +40,11 @@ const statusRoute =
 
 const searchLoraRoute =
   (
-    loraSearchQueue: Queue,
+    loraSearchQueue: SearchQueue,
     imageService: ImageService,
     puppeteerService: PuppeteerService,
   ) =>
   async (req: Request, res: Response) => {
-
     if (!searchTimer) {
       searchTimer = 100;
     } else {
@@ -65,7 +65,7 @@ const searchLoraRoute =
 
     const loraName = decodeURIComponent(query);
     const searchId = imageService.generateImageId();
-    loraSearchQueue.enqueueSearch(
+    loraSearchQueue.enqueue(
       {
         job: {
           query: loraName,
@@ -82,7 +82,7 @@ const searchLoraRoute =
 
 const generateImageRoute =
   (
-    imageQueue: Queue,
+    imageQueue: ImageQueue,
     config: Config,
     imageService: ImageService,
     events: EventEmitter,
@@ -107,7 +107,7 @@ const generateImageRoute =
       }
     }
 
-    if (imageQueue.queue.length >= config.MAX_QUEUE_SIZE) {
+    if (imageQueue.size >= config.MAX_QUEUE_SIZE) {
       res.status(429).send({
         error: "Server is busy. Please try again later.",
       });
@@ -123,8 +123,11 @@ const generateImageRoute =
 
     const imageId = imageService.generateImageId();
 
-    if (process.env.FOOOCUS_ENABLED && (!loraName || typeof loraName !== "string")) {
-    const headers = {
+    if (
+      process.env.FOOOCUS_ENABLED &&
+      (!loraName || typeof loraName !== "string")
+    ) {
+      const headers = {
         "content-type": "application/json",
       };
 
@@ -231,20 +234,46 @@ export const setupRoutes = (
   puppeteerService: PuppeteerService,
   imageService: ImageService,
   statusService: StatusService,
-  imageQueue: Queue,
-  loraSearchQueue: Queue,
+  imageQueue: ImageQueue,
+  loraSearchQueue: SearchQueue,
   events: EventEmitter,
 ): void => {
+  // Rate limiting pour empêcher les abus
+  const limiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 30, // 30 requêtes par minute
+    standardHeaders: true,
+    message: { error: "Too many requests, please try again later" },
+  });
+
+  // IP-based rate limiting
+  const searchLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 20, // 20 recherches par minute
+    standardHeaders: true,
+    message: { error: "Too many search requests, please try again later" },
+  });
+
+  // Limiter la génération d'images (plus lourde)
+  const generationLimiter = rateLimit({
+    windowMs: 2 * 60 * 1000, // 2 minutes
+    max: 5, // 5 générations d'images par 2 minutes
+    standardHeaders: true,
+    message: { error: "Generation rate limit reached, please try again later" },
+  });
+
   app.use(apiKeyCheck(config));
 
   app.get("/health", healthRoute);
-  app.get("/status/:imageId", statusRoute(statusService));
+  app.get("/status/:imageId", limiter, statusRoute(statusService));
   app.get(
     "/search-loras",
+    searchLimiter,
     searchLoraRoute(loraSearchQueue, imageService, puppeteerService),
   );
   app.get(
     "/generateImage",
+    generationLimiter,
     generateImageRoute(
       imageQueue,
       config,
@@ -254,7 +283,7 @@ export const setupRoutes = (
       statusService,
     ),
   );
-  app.get("/quota", (req, res) => quotaRoute(puppeteerService)(req, res));
+  app.get("/quota", limiter, quotaRoute(puppeteerService));
 };
 
 export default setupRoutes;

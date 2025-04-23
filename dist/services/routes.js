@@ -1,6 +1,10 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.setupRoutes = void 0;
+const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 let generateTimer = 0;
 let searchTimer = 0;
 const apiKeyCheck = (config) => (req, res, next) => {
@@ -43,7 +47,7 @@ const searchLoraRoute = (loraSearchQueue, imageService, puppeteerService) => asy
     }
     const loraName = decodeURIComponent(query);
     const searchId = imageService.generateImageId();
-    loraSearchQueue.enqueueSearch({
+    loraSearchQueue.enqueue({
         job: {
             query: loraName,
             res,
@@ -65,7 +69,7 @@ const generateImageRoute = (imageQueue, config, imageService, events, puppeteerS
             return;
         }
     }
-    if (imageQueue.queue.length >= config.MAX_QUEUE_SIZE) {
+    if (imageQueue.size >= config.MAX_QUEUE_SIZE) {
         res.status(429).send({
             error: "Server is busy. Please try again later.",
         });
@@ -77,7 +81,8 @@ const generateImageRoute = (imageQueue, config, imageService, events, puppeteerS
         return;
     }
     const imageId = imageService.generateImageId();
-    if (process.env.FOOOCUS_ENABLED && (!loraName || typeof loraName !== "string")) {
+    if (process.env.FOOOCUS_ENABLED &&
+        (!loraName || typeof loraName !== "string")) {
         const headers = {
             "content-type": "application/json",
         };
@@ -170,12 +175,33 @@ const quotaRoute = (puppeteerService) => async (_req, res) => {
     res.send(quota);
 };
 const setupRoutes = (app, config, puppeteerService, imageService, statusService, imageQueue, loraSearchQueue, events) => {
+    // Rate limiting pour empêcher les abus
+    const limiter = (0, express_rate_limit_1.default)({
+        windowMs: 60 * 1000,
+        max: 30,
+        standardHeaders: true,
+        message: { error: "Too many requests, please try again later" },
+    });
+    // IP-based rate limiting
+    const searchLimiter = (0, express_rate_limit_1.default)({
+        windowMs: 60 * 1000,
+        max: 20,
+        standardHeaders: true,
+        message: { error: "Too many search requests, please try again later" },
+    });
+    // Limiter la génération d'images (plus lourde)
+    const generationLimiter = (0, express_rate_limit_1.default)({
+        windowMs: 2 * 60 * 1000,
+        max: 5,
+        standardHeaders: true,
+        message: { error: "Generation rate limit reached, please try again later" },
+    });
     app.use(apiKeyCheck(config));
     app.get("/health", healthRoute);
-    app.get("/status/:imageId", statusRoute(statusService));
-    app.get("/search-loras", searchLoraRoute(loraSearchQueue, imageService, puppeteerService));
-    app.get("/generateImage", generateImageRoute(imageQueue, config, imageService, events, puppeteerService, statusService));
-    app.get("/quota", (req, res) => quotaRoute(puppeteerService)(req, res));
+    app.get("/status/:imageId", limiter, statusRoute(statusService));
+    app.get("/search-loras", searchLimiter, searchLoraRoute(loraSearchQueue, imageService, puppeteerService));
+    app.get("/generateImage", generationLimiter, generateImageRoute(imageQueue, config, imageService, events, puppeteerService, statusService));
+    app.get("/quota", limiter, quotaRoute(puppeteerService));
 };
 exports.setupRoutes = setupRoutes;
 exports.default = exports.setupRoutes;

@@ -3,7 +3,7 @@ import { PuppeteerService } from "../services/puppeteerService";
 import { ImageService } from "../services/imageService";
 import { LoraService } from "../services/loraService";
 import { StatusService } from "../services/statusService";
-import { Queue } from "../services/queueService";
+import { ImageQueue } from "../services/queueService";
 import { Config } from "../config/index";
 import { Page } from "rebrowser-puppeteer-core";
 import { EventEmitter } from "events";
@@ -21,9 +21,12 @@ export declare class ImageProcessor {
     private config;
     private imageQueue;
     private oldLoraName;
-    constructor(puppeteerService: PuppeteerService, imageService: ImageService, loraService: LoraService, statusService: StatusService, config: Config, imageQueue: Queue);
+    private retryCount;
+    private maxRetries;
+    constructor(puppeteerService: PuppeteerService, imageService: ImageService, loraService: LoraService, statusService: StatusService, config: Config, imageQueue: ImageQueue);
     processImage(job: Job, page: Page): Promise<void>;
     private handleLora;
     private handleImageResult;
+    private restartPageAndInit;
 }
 export default ImageProcessor;

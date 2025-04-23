@@ -1,22 +1,24 @@
+/// <reference types="node" />
 import { Page } from "rebrowser-puppeteer-core";
-import { JobQueueItem, JobSearchQueueItem, ProcessorFunction, SearchProcessorFunction } from "../types";
-export declare class Queue {
-    queue: JobQueueItem[];
-    searchingQueue: JobSearchQueueItem[];
+import { EventEmitter } from "events";
+import { Job, LoraSearchJob, QueueItem } from "types";
+export declare class Queue<T> extends EventEmitter {
+    private queue;
     private maxSize;
-    processing: boolean;
-    processingSearch: boolean;
-    processor: ProcessorFunction | null;
-    processorSearch: SearchProcessorFunction | null;
+    private processing;
+    private processor;
     constructor(maxSize?: number);
-    enqueue(item: JobQueueItem, page: Page): void;
-    enqueueSearch(item: JobSearchQueueItem, page: Page): void;
-    dequeue(): JobQueueItem | undefined;
-    dequeueSearch(): JobSearchQueueItem | undefined;
+    enqueue(item: QueueItem<T>, page: Page): void;
+    dequeue(): QueueItem<T> | undefined;
     isEmpty(): boolean;
-    isEmptySearch(): boolean;
-    process(processor: ProcessorFunction, page: Page): Promise<void>;
-    processSearch(processorSearch: SearchProcessorFunction, page: Page): Promise<void>;
+    process(processor: (job: T, page: Page) => Promise<void>, page: Page): Promise<void>;
+    clear(): void;
+    get size(): number;
+    get isProcessing(): boolean;
+    pause(): void;
+    resume(page: Page): void;
 }
-export default Queue;
-export { ProcessorFunction };
+export declare class ImageQueue extends Queue<Job> {
+}
+export declare class SearchQueue extends Queue<LoraSearchJob> {
+}

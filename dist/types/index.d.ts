@@ -11,6 +11,11 @@ export interface ConnectOptions {
     disableXvfb: boolean;
     ignoreAllFlags: boolean;
 }
+export interface QueueItem<T> {
+    id: string;
+    data: object;
+    job: T;
+}
 export declare const EVENT_TYPES: {
     readonly PREVIEW_UPDATE: "preview:update";
     readonly STATUS_UPDATE: "status:update";

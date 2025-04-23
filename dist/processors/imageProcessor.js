@@ -11,9 +11,12 @@ class ImageProcessor {
         this.config = config;
         this.imageQueue = imageQueue;
         this.oldLoraName = null;
+        this.retryCount = new Map();
+        this.maxRetries = 3;
     }
     async processImage(job, page) {
         const { prompt, loraName, imageId, emitter } = job;
+        const retries = this.retryCount.get(imageId) || 0;
         if (!page) {
             console.error("Page is null, cannot generate image.");
             this.statusService.updateImageStatus(imageId, "FAILED", "Page is null");
@@ -21,18 +24,41 @@ class ImageProcessor {
         }
         try {
             this.statusService.updateImageStatus(imageId, "STARTING");
+            // Vérifier si la page est utilisable, sinon la redémarrer
+            const isPageUsable = await page
+                .evaluate(() => {
+                return (document.readyState === "complete" &&
+                    !document.querySelector(".error-boundary") &&
+                    !document.querySelector(".Toastify__toast--error"));
+            })
+                .catch(() => false);
+            if (!isPageUsable) {
+                console.log("Page is in an unstable state, restarting...");
+                await this.restartPageAndInit(page);
+            }
             await this.handleLora(loraName, page, job);
             const result = await (0, imageGeneration_1.generateImage)(decodeURIComponent(prompt), page, emitter, imageId);
             await this.handleImageResult(result, imageId);
+            // Réinitialiser le compteur de retry en cas de succès
+            this.retryCount.delete(imageId);
         }
         catch (error) {
             if (error instanceof Error) {
                 console.error("Error generating image:", error);
-                this.statusService.updateImageStatus(imageId, "FAILED", error.message);
-                console.log("Refreshing the page after an error");
-                this.puppeteerService.generationPage =
-                    await this.puppeteerService.restartPage(page);
-                await this.puppeteerService.onStart(this.puppeteerService.generationPage, this.config.WEIGHTS_GG_COOKIE);
+                // Implémenter un système de retry
+                if (retries < this.maxRetries) {
+                    console.log(`Retrying job ${imageId}, attempt ${retries + 1}/${this.maxRetries}`);
+                    this.retryCount.set(imageId, retries + 1);
+                    // Attendre avant de réessayer
+                    await new Promise((r) => setTimeout(r, 2000));
+                    // Redémarrer la page et réessayer
+                    await this.restartPageAndInit(page);
+                    return this.processImage(job, page);
+                }
+                else {
+                    this.statusService.updateImageStatus(imageId, "FAILED", `Failed after ${this.maxRetries} attempts: ${error.message}`);
+                    this.retryCount.delete(imageId);
+                }
             }
         }
     }
@@ -68,9 +94,7 @@ class ImageProcessor {
         if (result.error) {
             console.error("Error generating image:", result.error);
             this.statusService.updateImageStatus(imageId, "FAILED", result.error);
-            this.puppeteerService.generationPage =
-                await this.puppeteerService.restartPage(this.puppeteerService.generationPage);
-            await this.puppeteerService.onStart(this.puppeteerService.generationPage, this.config.WEIGHTS_GG_COOKIE);
+            await this.restartPageAndInit(this.puppeteerService.generationPage);
         }
         else {
             try {
@@ -94,6 +118,11 @@ class ImageProcessor {
             }
             this.statusService.updateImageStatus(imageId, "COMPLETED");
         }
+    }
+    async restartPageAndInit(page) {
+        this.puppeteerService.generationPage =
+            await this.puppeteerService.restartPage(page);
+        await this.puppeteerService.onStart(this.puppeteerService.generationPage, this.config.WEIGHTS_GG_COOKIE);
     }
 }
 exports.ImageProcessor = ImageProcessor;

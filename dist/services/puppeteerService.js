@@ -38,7 +38,7 @@ class PuppeteerService {
             ],
             customConfig: {
                 targetCPU: 30,
-                maxConcurrency: 2 // Limite le nombre d'opérations concurrentes
+                maxConcurrency: 2, // Limite le nombre d'opérations concurrentes
             },
             turnstile: true,
             connectOption: {},
@@ -71,21 +71,21 @@ class PuppeteerService {
                 "manifest",
                 "script",
                 "xhr",
-                "fetch" // Bloquer les fetch non essentiels
+                "fetch", // Bloquer les fetch non essentiels
             ];
             if (options?.blockImages) {
                 blockTypes.push("image");
             }
             // Liste de domaines à bloquer
             const blockedDomains = [
-                'google-analytics.com',
-                'googletagmanager.com',
-                'doubleclick.net',
-                'facebook.com',
-                'analytics'
+                "google-analytics.com",
+                "googletagmanager.com",
+                "doubleclick.net",
+                "facebook.com",
+                "analytics",
             ];
             const shouldBlock = blockTypes.includes(req.resourceType()) ||
-                blockedDomains.some(domain => req.url().includes(domain));
+                blockedDomains.some((domain) => req.url().includes(domain));
             if (shouldBlock) {
                 // console.log(`Blocked request to: ${req.url()}`);
                 req.abort();
@@ -103,14 +103,28 @@ class PuppeteerService {
         });
     }
     async _setupPage(page, options) {
-        // Configuration de base
-        await page.setDefaultNavigationTimeout(30000);
-        await page.setDefaultTimeout(30000);
-        await page.setViewport({ width: 1280, height: 800 });
-        // Optimisation si nécessaire
-        if (options?.blockImages) {
-            await this._optimizePage(page, options);
-        }
+        await page.setCacheEnabled(false); // Désactiver le cache
+        await page.setRequestInterception(true);
+        const blockedResources = new Set(["image", "stylesheet", "font", "media"]);
+        const blockedDomains = new Set([
+            "google-analytics.com",
+            "googletagmanager.com",
+        ]);
+        page.on("request", (request) => {
+            const shouldBlock = blockedResources.has(request.resourceType()) ||
+                blockedDomains.has(new URL(request.url()).hostname);
+            if (options?.blockImages && request.resourceType() === "image") {
+                request.abort();
+            }
+            else {
+                if (shouldBlock) {
+                    request.abort();
+                }
+                else {
+                    request.continue();
+                }
+            }
+        });
     }
     async onStart(page, cookie) {
         try {
@@ -124,7 +138,7 @@ class PuppeteerService {
                 httpOnly: false,
             });
             await page.goto("https://weights.gg/create", {
-                waitUntil: 'networkidle2',
+                waitUntil: "networkidle2",
                 timeout: 30000,
             });
             const success = await page.evaluate(() => {

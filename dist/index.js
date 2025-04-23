@@ -33,7 +33,7 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const config_1 = __importDefault(require("./config"));
 const puppeteerService_1 = __importDefault(require("./services/puppeteerService"));
-const queueService_1 = __importDefault(require("./services/queueService"));
+const queueService_1 = require("./services/queueService");
 const imageService_1 = __importDefault(require("./services/imageService"));
 const loraService_1 = __importDefault(require("./services/loraService"));
 const statusService_1 = __importDefault(require("./services/statusService"));
@@ -48,8 +48,8 @@ const imageService = new imageService_1.default(config_1.default);
 const loraService = new loraService_1.default(config_1.default);
 const statusService = new statusService_1.default();
 // --- Queue Initialization ---
-const imageQueue = new queueService_1.default(config_1.default.MAX_QUEUE_SIZE);
-const loraSearchQueue = new queueService_1.default();
+const imageQueue = new queueService_1.ImageQueue(config_1.default.MAX_QUEUE_SIZE);
+const loraSearchQueue = new queueService_1.SearchQueue();
 // --- Express App ---
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
@@ -99,7 +99,7 @@ async function main() {
         });
     });
     imageQueue.process(processImageJob, puppeteerService.generationPage);
-    loraSearchQueue.processSearch(processLoraSearchJob, puppeteerService.loraSearchPage);
+    loraSearchQueue.process(processLoraSearchJob, puppeteerService.loraSearchPage);
     (0, routes_1.default)(app, config_1.default, puppeteerService, imageService, statusService, imageQueue, loraSearchQueue, emitter);
     app.listen(config_1.default.PORT, () => {
         console.log(`Server is running on port ${config_1.default.PORT}`);

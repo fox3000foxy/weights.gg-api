@@ -7,7 +7,7 @@ import { Page } from "rebrowser-puppeteer-core";
 
 import config from "./config";
 import PuppeteerService from "./services/puppeteerService";
-import Queue from "./services/queueService";
+import { ImageQueue, SearchQueue } from "./services/queueService";
 import ImageService from "./services/imageService";
 import LoraService from "./services/loraService";
 import StatusService from "./services/statusService";
@@ -32,8 +32,8 @@ const loraService = new LoraService(config);
 const statusService = new StatusService();
 
 // --- Queue Initialization ---
-const imageQueue = new Queue(config.MAX_QUEUE_SIZE);
-const loraSearchQueue = new Queue();
+const imageQueue = new ImageQueue(config.MAX_QUEUE_SIZE);
+const loraSearchQueue = new SearchQueue();
 
 // --- Express App ---
 const app = express();
@@ -121,7 +121,7 @@ async function main() {
   });
 
   imageQueue.process(processImageJob, puppeteerService.generationPage);
-  loraSearchQueue.processSearch(
+  loraSearchQueue.process(
     processLoraSearchJob,
     puppeteerService.loraSearchPage,
   );
