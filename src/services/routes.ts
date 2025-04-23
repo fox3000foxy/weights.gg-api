@@ -7,7 +7,6 @@ import { StatusService } from "./statusService";
 import { ImageQueue, SearchQueue } from "./queueService";
 import { Page } from "rebrowser-puppeteer-core";
 import { GenerateImageJob } from "../types";
-import rateLimit from "express-rate-limit";
 
 let generateTimer: number = 0;
 let searchTimer: number = 0;
@@ -238,42 +237,16 @@ export const setupRoutes = (
   loraSearchQueue: SearchQueue,
   events: EventEmitter,
 ): void => {
-  // Rate limiting pour empêcher les abus
-  const limiter = rateLimit({
-    windowMs: 60 * 1000, // 1 minute
-    max: 30, // 30 requêtes par minute
-    standardHeaders: true,
-    message: { error: "Too many requests, please try again later" },
-  });
-
-  // IP-based rate limiting
-  const searchLimiter = rateLimit({
-    windowMs: 60 * 1000, // 1 minute
-    max: 20, // 20 recherches par minute
-    standardHeaders: true,
-    message: { error: "Too many search requests, please try again later" },
-  });
-
-  // Limiter la génération d'images (plus lourde)
-  const generationLimiter = rateLimit({
-    windowMs: 2 * 60 * 1000, // 2 minutes
-    max: 5, // 5 générations d'images par 2 minutes
-    standardHeaders: true,
-    message: { error: "Generation rate limit reached, please try again later" },
-  });
-
   app.use(apiKeyCheck(config));
 
   app.get("/health", healthRoute);
-  app.get("/status/:imageId", limiter, statusRoute(statusService));
+  app.get("/status/:imageId", statusRoute(statusService));
   app.get(
     "/search-loras",
-    searchLimiter,
     searchLoraRoute(loraSearchQueue, imageService, puppeteerService),
   );
   app.get(
     "/generateImage",
-    generationLimiter,
     generateImageRoute(
       imageQueue,
       config,
@@ -283,7 +256,7 @@ export const setupRoutes = (
       statusService,
     ),
   );
-  app.get("/quota", limiter, quotaRoute(puppeteerService));
+  app.get("/quota", quotaRoute(puppeteerService));
 };
 
 export default setupRoutes;
