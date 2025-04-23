@@ -22,7 +22,8 @@
     "puppeteer-real-browser": "^1.4.2",
     "rebrowser-puppeteer-core": "^23.10.3",
     "sharp": "^0.34.1",
-    "typescript": "^4.9.5"
+    "typescript": "^4.9.5",
+    "weights-selenium": "file:"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
