@@ -65,63 +65,11 @@ export class PuppeteerService {
     ]);
   }
 
-  private async _optimizePage(page: Page, options?: { blockImages?: boolean }) {
-    // Bloquer plus de ressources non essentielles
-    await page.setRequestInterception(true);
-    page.on("request", (req) => {
-      const blockTypes = [
-        "stylesheet",
-        "font",
-        "media",
-        "other",
-        "manifest",
-        "script", // Bloquer les scripts non essentiels
-        "xhr", // Bloquer les requêtes XHR non essentielles
-        "fetch", // Bloquer les fetch non essentiels
-      ];
-
-      if (options?.blockImages) {
-        blockTypes.push("image");
-      }
-
-      // Liste de domaines à bloquer
-      const blockedDomains = [
-        "google-analytics.com",
-        "googletagmanager.com",
-        "doubleclick.net",
-        "facebook.com",
-        "analytics",
-      ];
-
-      const shouldBlock =
-        blockTypes.includes(req.resourceType()) ||
-        blockedDomains.some((domain) => req.url().includes(domain));
-
-      if (shouldBlock) {
-        // console.log(`Blocked request to: ${req.url()}`);
-        req.abort();
-      } else {
-        req.continue();
-      }
-    });
-
-    // Désactiver plus de fonctionnalités gourmandes en CPU
-    await page.evaluate(() => {
-      window.requestAnimationFrame = () => 0;
-      window.cancelAnimationFrame = () => {};
-      // window.setTimeout = () => 0 as number;
-      // window.setInterval = () => 0 as number;
-    });
-  }
-
-  private async _setupPage(
-    page: Page,
-    options?: { blockImages?: boolean },
-  ): Promise<void> {
+  private async _setupPage(page: Page): Promise<void> {
     await page.setCacheEnabled(false); // Désactiver le cache
     await page.setRequestInterception(true);
 
-    const blockedResources = new Set(["image", "stylesheet", "font", "media"]);
+    const blockedResources = new Set(["stylesheet", "font", "media"]);
     const blockedDomains = new Set([
       "google-analytics.com",
       "googletagmanager.com",
@@ -132,14 +80,10 @@ export class PuppeteerService {
         blockedResources.has(request.resourceType()) ||
         blockedDomains.has(new URL(request.url()).hostname);
 
-      if (options?.blockImages && request.resourceType() === "image") {
+      if (shouldBlock) {
         request.abort();
       } else {
-        if (shouldBlock) {
-          request.abort();
-        } else {
-          request.continue();
-        }
+        request.continue();
       }
     });
   }
@@ -189,9 +133,7 @@ export class PuppeteerService {
       const context = await this.browser.createBrowserContext();
       const newPage = await context.newPage();
 
-      await this._setupPage(newPage, {
-        blockImages: oldPage === this.loraSearchPage,
-      });
+      await this._setupPage(newPage);
 
       if (oldPage === this.loraSearchPage) {
         await oldPage.browserContext().close();

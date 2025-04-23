@@ -5,7 +5,6 @@ export declare class PuppeteerService {
     private browser;
     constructor();
     initialize(): Promise<void>;
-    private _optimizePage;
     private _setupPage;
     onStart(page: Page, cookie: string): Promise<void>;
     restartPage(oldPage: Page): Promise<Page>;
