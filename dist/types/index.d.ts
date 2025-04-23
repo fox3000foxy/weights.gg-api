@@ -70,6 +70,7 @@ export interface SearchLoraJob extends LoraSearchJob {
 }
 export interface StatusUpdate {
     imageId: string;
-    status: "STARTING" | "COMPLETED" | "FAILED" | "PENDING";
+    status: "STARTING" | "COMPLETED" | "FAILED" | "PENDING" | "QUEUED";
+    lastModifiedDate: string | null;
     error?: string | null;
 }

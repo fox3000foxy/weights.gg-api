@@ -68,7 +68,7 @@ export class PuppeteerService {
   private async _setupPage(page: Page): Promise<void> {
     await page.setCacheEnabled(false); // Désactiver le cache
     await page.setRequestInterception(true);
-
+    await page.setViewport({ width: 660, height: 400 });
     const blockedResources = new Set(["stylesheet", "font", "media"]);
     const blockedDomains = new Set([
       "google-analytics.com",

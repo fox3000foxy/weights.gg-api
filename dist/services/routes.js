@@ -4,12 +4,14 @@ exports.setupRoutes = void 0;
 let generateTimer = 0;
 let searchTimer = 0;
 const apiKeyCheck = (config) => (req, res, next) => {
-    const apiKey = req.headers["x-api-key"];
-    if (!apiKey || apiKey !== config.API_KEY) {
-        res.status(401).send({
-            error: "Unauthorized: Missing or invalid API key",
-        });
-        return;
+    if (req.hostname !== "localhost") {
+        const apiKey = req.headers["x-api-key"];
+        if (!apiKey || apiKey !== config.API_KEY) {
+            res.status(401).send({
+                error: "Unauthorized: Missing or invalid API key",
+            });
+            return;
+        }
     }
     next();
 };
