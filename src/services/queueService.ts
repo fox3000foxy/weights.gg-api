@@ -1,12 +1,11 @@
-import { Page } from "rebrowser-puppeteer-core";
 import { EventEmitter } from "events";
-import { Job, LoraSearchJob, QueueItem } from "types";
+import { QueueItem } from "types";
 
 export class Queue<T> extends EventEmitter {
   private queue: QueueItem<T>[];
   private maxSize: number;
   private processing: boolean;
-  private processor: ((job: T, page: Page) => Promise<void>) | null;
+  private processor: ((job: T) => Promise<void>) | null;
 
   constructor(maxSize: number = 10) {
     super();
@@ -16,7 +15,7 @@ export class Queue<T> extends EventEmitter {
     this.processor = null;
   }
 
-  public enqueue(item: QueueItem<T>, page: Page): void {
+  public enqueue(item: QueueItem<T>): void {
     if (this.queue.length >= this.maxSize) {
       this.emit("error", new Error("Queue is full"));
       throw new Error("Queue is full");
@@ -25,7 +24,7 @@ export class Queue<T> extends EventEmitter {
     this.emit("enqueued", item);
 
     if (!this.processing && this.processor) {
-      this.process(this.processor, page);
+      this.process(this.processor);
     }
   }
 
@@ -38,8 +37,7 @@ export class Queue<T> extends EventEmitter {
   }
 
   public async process(
-    processor: (job: T, page: Page) => Promise<void>,
-    page: Page,
+    processor: (job: T) => Promise<void>
   ): Promise<void> {
     if (this.processing) return;
 
@@ -53,7 +51,7 @@ export class Queue<T> extends EventEmitter {
           console.error("Item ID is undefined");
           continue;
         }
-        await processor(item.job, page);
+        await processor(item.job);
       }
     } catch (error) {
       console.error("Error processing queue item:", error);
@@ -79,12 +77,10 @@ export class Queue<T> extends EventEmitter {
     this.processing = false;
   }
 
-  public resume(page: Page): void {
+  public resume(): void {
     if (this.processor && !this.processing) {
-      this.process(this.processor, page);
+      this.process(this.processor);
     }
   }
 }
 
-export class ImageQueue extends Queue<Job> {}
-export class SearchQueue extends Queue<LoraSearchJob> {}
