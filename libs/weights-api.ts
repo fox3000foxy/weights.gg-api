@@ -1,44 +1,44 @@
 import fetch from "node-fetch";
 import { RequestInit } from "node-fetch";
 
-enum HttpMethod {
+export enum HttpMethod {
   GET = "GET",
   POST = "POST",
 }
 
-enum ImageStatus {
+export enum ImageStatus {
   PENDING = "PENDING",
   PROCESSING = "PROCESSING",
   COMPLETED = "COMPLETED",
   FAILED = "FAILED",
 }
 
-interface GenerationResult {
+export interface GenerationResult {
   imageId: string;
 }
 
-interface HealthData {
+export interface HealthData {
   status: string;
 }
 
-interface Lora {
+export interface Lora {
   name: string;
   description: string;
   tags: string[];
   // other properties
 }
 
-interface Params 
+export interface Params 
 { 
   [key: string]: object | string | null 
 }
 
-interface GenerationParams extends Params{
+export interface GenerationParams extends Params{
   prompt: string;
   loraName: string | null;
 }
 
-interface StatusResponse {
+export interface StatusResponse {
   status: ImageStatus;
   lastModifiedDate?: string;
   error?: string;
