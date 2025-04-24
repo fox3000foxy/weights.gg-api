@@ -2,7 +2,6 @@ import { controller, httpGet, interfaces } from "inversify-express-utils";
 import { Request, Response } from "express";
 import { inject } from "inversify";
 import { TYPES } from "../types";
-import { Config } from "../config";
 import ImageService from "../services/imageService";
 import StatusService from "../services/statusService";
 import DirectApiService from "../services/directApiService";
@@ -11,7 +10,6 @@ import { apiKeyCheck } from "../middlewares/apiKeyCheck";
 @controller("/generateImage")
 export class GenerateImageController implements interfaces.Controller {
   constructor(
-    @inject(TYPES.Config) private config: Config,
     @inject(TYPES.ImageService) private imageService: ImageService,
     @inject(TYPES.StatusService) private statusService: StatusService,
     @inject(TYPES.DirectApiService) private directApiService: DirectApiService,

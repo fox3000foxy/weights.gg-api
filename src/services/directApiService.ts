@@ -107,7 +107,7 @@ export class DirectApiService implements IDirectApiService {
     });
     this.page = page;
     await this.page.setCacheEnabled(false); // Disable cache
-    await this.page.goto("https://weights.gg/create");
+    await this.page.goto("https://weights.gg/create", {waitUntil: "networkidle0"});
     await this.page.exposeFunction(
       "llmStringForSafety",
       this.checkPromptSafety.bind(this),

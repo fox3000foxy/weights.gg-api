@@ -2,14 +2,12 @@ import { controller, httpGet, interfaces } from "inversify-express-utils";
 import { Request, Response } from "express";
 import { inject } from "inversify";
 import { TYPES } from "../types";
-import { Config } from "../config";
 import StatusService from "../services/statusService";
 import { apiKeyCheck } from "../middlewares/apiKeyCheck";
 
 @controller("/status")
 export class StatusController implements interfaces.Controller {
   constructor(
-    @inject(TYPES.Config) private config: Config,
     @inject(TYPES.StatusService) private statusService: StatusService,
   ) {}
 
