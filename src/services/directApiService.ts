@@ -97,42 +97,17 @@ export class DirectApiService implements IDirectApiService {
 
   async initPuppeteer(): Promise<Page> {
     const { page }: { page: Page } = await connect({
-        headless: true,
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--disable-gpu",
-          "--enable-features=NetworkService",
-          "--disable-background-timer-throttling",
-          "--disable-backgrounding-occluded-windows",
-          "--disable-renderer-backgrounding",
-          "--disable-accelerated-2d-canvas",
-          "--disable-default-apps",
-          "--disable-extensions",
-          "--disable-sync",
-          "--metrics-recording-only",
-          "--mute-audio",
-          "--no-first-run",
-          "--no-zygote",
-          "--safebrowsing-disable-auto-update",
-          "--disable-javascript-harmony-shipping",
-          "--disable-site-isolation-trials",
-          "--disable-features=IsolateOrigins,site-per-process",
-          "--disable-threaded-scrolling",
-          "--disable-threaded-animation",
-          "--disable-composited-antialiasing",
-        ],
-        customConfig: {
-        },
-        turnstile: true,
-        connectOption: {},
-        disableXvfb: false,
-        ignoreAllFlags: false,
-      });
+      headless: false,
+      args: [],
+      customConfig: {},
+      turnstile: true,
+      connectOption: {},
+      disableXvfb: false,
+      ignoreAllFlags: false,
+    });
     this.page = page;
     await this.page.setCacheEnabled(false); // Disable cache
-    await this.page.goto("https://weights.gg/create");
+    await this.page.goto("https://weights.gg/create", {waitUntil: "networkidle0"});
     await this.page.exposeFunction(
       "llmStringForSafety",
       this.checkPromptSafety.bind(this),
