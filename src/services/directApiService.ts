@@ -97,7 +97,7 @@ export class DirectApiService implements IDirectApiService {
 
   async initPuppeteer(): Promise<Page> {
     const { page }: { page: Page } = await connect({
-      headless: true,
+      headless: false,
       args: [],
       customConfig: {},
       turnstile: true,
