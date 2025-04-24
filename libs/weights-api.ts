@@ -1,6 +1,48 @@
 import fetch from "node-fetch";
 import { RequestInit } from "node-fetch";
 
+export enum HttpMethod {
+  GET = "GET",
+  POST = "POST",
+}
+
+export enum ImageStatus {
+  PENDING = "PENDING",
+  PROCESSING = "PROCESSING",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
+}
+
+export interface GenerationResult {
+  imageId: string;
+}
+
+export interface HealthData {
+  status: string;
+}
+
+export interface Lora {
+  name: string;
+  description: string;
+  tags: string[];
+  image: string;
+}
+
+export interface Params {
+  [key: string]: object | string | null;
+}
+
+export interface GenerationParams extends Params {
+  prompt: string;
+  loraName: string | null;
+}
+
+export interface StatusResponse {
+  status: ImageStatus;
+  lastModifiedDate?: string;
+  error?: string;
+}
+
 export class WeightsApi {
   constructor(apiKey: string | null, endpoint: string | null = null) {
     this.endpoint = endpoint;
@@ -17,8 +59,8 @@ export class WeightsApi {
    */
   async apiCall(
     path: string,
-    method: string = "GET",
-    body: { [key: string]: object | string | null } | null = null,
+    method: HttpMethod = HttpMethod.GET,
+    body: Params | null = null,
   ) {
     const options: RequestInit = {
       method,
@@ -28,7 +70,7 @@ export class WeightsApi {
       },
     };
     let url = this.endpoint + path;
-    if (method === "GET" && body) {
+    if (method === HttpMethod.GET && body) {
       const params = new URLSearchParams();
       for (const key in body) {
         if (Object.prototype.hasOwnProperty.call(body, key)) {
@@ -56,9 +98,9 @@ export class WeightsApi {
    * Retrieves health status of the API.
    * @returns Promise with health data.
    */
-  async getHealthData() {
+  async getHealthData(): Promise<HealthData> {
     try {
-      const response = await this.apiCall("/health", "GET");
+      const response = await this.apiCall("/health", HttpMethod.GET);
       return await response.json();
     } catch (error: Error | unknown) {
       throw new Error(
@@ -91,10 +133,10 @@ export class WeightsApi {
    * @param params - Object containing imageId.
    * @returns Promise with status information.
    */
-  getStatus = async (params: { imageId: string }) => {
+  getStatus = async (params: GenerationResult): Promise<StatusResponse> => {
     return this.callWithHealthCheck(() =>
-      this.apiCall("/status/" + params.imageId, "GET").then((response) =>
-        response.json(),
+      this.apiCall("/status/" + params.imageId, HttpMethod.GET).then(
+        (response) => response.json(),
       ),
     );
   };
@@ -103,9 +145,11 @@ export class WeightsApi {
    * Retrieves quota information.
    * @returns Promise with quota data.
    */
-  getQuota = async () => {
+  getQuota = async (): Promise<string> => {
     return this.callWithHealthCheck(() =>
-      this.apiCall("/quota", "GET").then((response) => response.text()),
+      this.apiCall("/quota", HttpMethod.GET).then((response) =>
+        response.text(),
+      ),
     );
   };
 
@@ -114,9 +158,9 @@ export class WeightsApi {
    * @param params - Object containing search query.
    * @returns Promise with search results.
    */
-  searchLoras = async (params: { query: string }) => {
+  searchLoras = async (params: { query: string }): Promise<Lora[]> => {
     return this.callWithHealthCheck(() =>
-      this.apiCall("/search-loras", "GET", params).then((response) =>
+      this.apiCall("/search-loras", HttpMethod.GET, params).then((response) =>
         response.json(),
       ),
     );
@@ -127,12 +171,11 @@ export class WeightsApi {
    * @param params - Object containing query and optional loraName.
    * @returns Promise with generation results.
    */
-  generateImage = async (params: {
-    prompt: string;
-    loraName: string | null;
-  }) => {
+  generateImage = async (
+    params: GenerationParams,
+  ): Promise<GenerationResult> => {
     return this.callWithHealthCheck(() =>
-      this.apiCall("/generateImage", "GET", params).then((response) =>
+      this.apiCall("/generateImage", HttpMethod.GET, params).then((response) =>
         response.json(),
       ),
     );
@@ -145,9 +188,9 @@ export class WeightsApi {
    * @returns Promise with generation results.
    */
   generateProgressiveImage = async (
-    params: { prompt: string; loraName: string | null },
-    callback: (status: string, data: { imageId: string }) => unknown = (
-      status: string,
+    params: GenerationParams,
+    callback: (status: ImageStatus, data: GenerationResult) => unknown = (
+      status: ImageStatus,
     ) => {
       return status;
     },
@@ -158,8 +201,11 @@ export class WeightsApi {
     const statusResponse = await this.getStatus({ imageId });
     const { status } = statusResponse;
     callback(status, { imageId });
-    let oldModifiedDate = null;
-    while (status !== "COMPLETED") {
+    if (status === ImageStatus.COMPLETED) {
+      return statusResponse;
+    }
+    let oldModifiedDate: string | null = null;
+    while (true) {
       await new Promise((resolve) => setTimeout(resolve, 100)); // Wait for 100 milliseconds
       const statusResponse = await this.getStatus({ imageId });
       const { status } = statusResponse;
@@ -170,7 +216,11 @@ export class WeightsApi {
         callback(status, { imageId });
       }
 
-      if (status === "FAILED") {
+      if (status === ImageStatus.COMPLETED) {
+        break;
+      }
+
+      if (status === ImageStatus.FAILED) {
         throw new Error("Image generation failed: " + error);
       }
     }

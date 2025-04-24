@@ -1,6 +1,3 @@
-// src/types/index.ts
-
-import { EventEmitter } from "events";
 import { Response } from "express";
 import { Page } from "rebrowser-puppeteer-core";
 
@@ -12,6 +9,12 @@ export interface ConnectOptions {
   connectOption: Record<string, unknown>;
   disableXvfb: boolean;
   ignoreAllFlags: boolean;
+}
+
+export interface QueueItem<T> {
+  id: string;
+  data: object;
+  job: T;
 }
 
 export const EVENT_TYPES = {
@@ -34,7 +37,6 @@ export interface Job {
   prompt: string;
   loraName: string | null;
   imageId: string;
-  emitter: EventEmitter;
 }
 
 export interface GenerateImageJob extends Job {
@@ -42,9 +44,12 @@ export interface GenerateImageJob extends Job {
 }
 
 export interface LoraResult {
+  id: string;
   name: string;
-  image: string;
+  description: string;
+  image?: string;
   tags: string[];
+  triggers: string[];
 }
 
 export interface LoraSearchResult {
@@ -83,6 +88,71 @@ export interface SearchLoraJob extends LoraSearchJob {
 
 export interface StatusUpdate {
   imageId: string;
-  status: "STARTING" | "COMPLETED" | "FAILED" | "PENDING";
+  status: "STARTING" | "COMPLETED" | "FAILED" | "PENDING" | "QUEUED";
+  lastModifiedDate: string | null;
   error?: string | null;
 }
+
+export interface SafetyCheckResult {
+  stringIsUnsafe: boolean;
+  hasCSAM: boolean;
+  hasSelfHarm: boolean;
+}
+
+export interface ImageJobResult {
+  status: string;
+  outputUrl: string;
+}
+
+export interface ModelSuggestion {
+  id: string;
+  name: string;
+  description: string;
+  ImageLoraTrainingJob: Array<{
+    UploadedTrainingImage: Array<{ url: string }>;
+  }>;
+  isNSFW: boolean;
+  isPublic: boolean;
+  triggers: string[];
+}
+
+export interface Lora {
+  id: string;
+  name: string;
+  description: string;
+  image?: string;
+  tags: string[];
+  triggers: string[];
+}
+
+export interface CreateImageJobBody {
+  json: {
+    prompt: string;
+    seed: string | null;
+    loraId: string | null;
+    secondaryLoraId: string | null;
+    tertiaryLoraId: string | null;
+    dimensions: string;
+    inputImageUrl: string | null;
+    templatePromptId: string | null;
+  };
+  meta: {
+    values: {
+      seed: string[];
+      loraId: string[] | undefined;
+      secondaryLoraId: string[];
+      tertiaryLoraId: string[];
+      inputImageUrl: string[];
+      templatePromptId: string[];
+    };
+  };
+}
+
+export const TYPES = {
+  Config: Symbol.for("Config"),
+  DirectApiService: Symbol.for("DirectApiService"),
+  ImageService: Symbol.for("ImageService"),
+  StatusService: Symbol.for("StatusService"),
+  LoraService: Symbol.for("LoraService"),
+  Application: Symbol.for("Application"),
+};

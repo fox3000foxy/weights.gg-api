@@ -1,5 +1,27 @@
-// filepath: weights-selenium/src/services/statusService.ts
-export class StatusService {
+import { injectable } from "inversify";
+
+export interface IStatusService {
+  imageStatuses: {
+    [key: string]: {
+      status: string;
+      lastModifiedDate?: number;
+      error: string | null;
+    };
+  };
+  updateImageStatus(
+    imageId: string,
+    status: string,
+    errorMessage?: string | null,
+  ): void;
+  getImageStatus(
+    imageId: string,
+  ):
+    | { status: string; lastModifiedDate?: number; error: string | null }
+    | undefined;
+}
+
+@injectable()
+export class StatusService implements IStatusService {
   public imageStatuses: {
     [key: string]: {
       status: string;
@@ -32,7 +54,7 @@ export class StatusService {
   ):
     | { status: string; lastModifiedDate?: number; error: string | null }
     | undefined {
-    return this.imageStatuses[imageId];
+    return this.imageStatuses[imageId] || {status: "NOT_FOUND", error: null};
   }
 }
 

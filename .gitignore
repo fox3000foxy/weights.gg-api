@@ -134,5 +134,7 @@ out
 .yarn/install-state.gz
 .pnp.*
 
-images/*
+images
 lora_cache.json
+dist
+package-lock.json

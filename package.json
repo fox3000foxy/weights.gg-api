@@ -4,7 +4,7 @@
   "description": "A project for image processing and Lora search using Puppeteer and Express.",
   "main": "src/index.ts",
   "scripts": {
-    "start": "npx ts-node src/index.ts",
+    "start": "npx node dist/index.js",
     "lint": "npx eslint src --ext .ts",
     "lint:fix": "npx eslint src --ext .ts --fix",
     "format": "npx prettier --write src",
@@ -14,24 +14,31 @@
     "test": "npx jest"
   },
   "dependencies": {
+    "crypto-js": "^4.2.0",
     "dotenv": "^16.5.0",
     "express": "^4.21.2",
+    "inversify": "^6.2.2",
+    "inversify-express-utils": "^6.5.0",
     "node-fetch": "^2.7.0",
-    "puppeteer": "^10.0.0",
+    "puppeteer": "^24.7.1",
     "puppeteer-real-browser": "^1.4.2",
     "rebrowser-puppeteer-core": "^23.10.3",
+    "reflect-metadata": "^0.2.2",
     "sharp": "^0.34.1",
-    "typescript": "^4.9.5"
+    "typescript": "^4.9.5",
+    "weights-selenium": "file:"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
+    "@types/crypto-js": "^4.2.2",
     "@types/express": "^5.0.1",
-    "@types/jest": "^27.0.0",
+    "@types/jest": "^27.5.2",
     "@types/node": "^14.0.0",
     "@types/node-fetch": "^2.6.12",
     "eslint": "^9.25.0",
     "globals": "^16.0.0",
-    "jest": "^27.0.0",
+    "jest": "^27.5.1",
+    "jest-environment-node": "^29.7.0",
     "prettier": "^3.5.3",
     "ts-node": "^10.0.0",
     "typescript-eslint": "^8.30.1"

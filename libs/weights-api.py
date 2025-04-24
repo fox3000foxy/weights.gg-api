@@ -19,7 +19,7 @@ class WeightsApi:
         if self.session:
             await self.session.close()
 
-    async def api_call(self, path: str, method: str = 'GET', body: Optional[Dict] = None) -> Dict:
+    async def api_call(self, path: str, method: str = 'GET', body: Optional[Dict] = None) -> aiohttp.ClientResponse:
         """
         Makes an async HTTP request to the API endpoint
         """
@@ -41,11 +41,11 @@ class WeightsApi:
                         params[key] = str(value)  # Convert values to string
                 async with self.session.get(url, params=params, headers=headers) as response:
                     response.raise_for_status()
-                    return await response.json()
+                    return response
             else:
                 async with self.session.request(method, url, json=body, headers=headers) as response:
                     response.raise_for_status()
-                    return await response.json()
+                    return response
         except aiohttp.ClientError as e:
             raise Exception(f"Weights API Error: {e}")
 
@@ -64,7 +64,7 @@ class WeightsApi:
         """
         try:
             response = await self.api_call('/health')
-            return response
+            return await response.json()
         except Exception as e:
             raise Exception(f"Weights API Error: {e}")
 
@@ -83,7 +83,8 @@ class WeightsApi:
         Gets the status of a specific image
         """
         async def call():
-            return await self.api_call(f'/status/{image_id}')
+            response = await self.api_call(f'/status/{image_id}')
+            return await response.json()
         return await self.call_with_health_check(call)
 
     async def get_quota(self) -> str:
@@ -92,7 +93,7 @@ class WeightsApi:
         """
         async def call():
             response = await self.api_call('/quota')
-            return json.dumps(response)
+            return await response.text()
         return await self.call_with_health_check(call)
 
     async def search_loras(self, query: str) -> Dict:
@@ -100,7 +101,8 @@ class WeightsApi:
         Searches for Lora models
         """
         async def call():
-            return await self.api_call('/search-loras', method='GET', body={'query': query})
+            response = await self.api_call('/search-loras', method='GET', body={'query': query})
+            return await response.json()
         return await self.call_with_health_check(call)
 
     async def generate_image(self, prompt: str, lora_name: Optional[str] = None) -> Dict:
@@ -109,7 +111,8 @@ class WeightsApi:
         """
         params = {'prompt': prompt, 'loraName': lora_name}
         async def call():
-            return await self.api_call('/generateImage', method='GET', body=params)
+            response = await self.api_call('/generateImage', method='GET', body=params)
+            return await response.json()
         return await self.call_with_health_check(call)
 
     async def generate_progressive_image(self, prompt: str, lora_name: Optional[str] = None, 
@@ -117,16 +120,22 @@ class WeightsApi:
         """
         Generates a progressive image with status updates
         """
+        await self._check_health()
 
         result = await self.generate_image(prompt, lora_name)
         image_id = result['imageId']
-        
+        status_response = await self.get_status(image_id)
+        status = status_response.get('status')
+        callback(status, {'imageId': image_id})
+        if status == 'COMPLETED':
+            return status_response
         old_modified_date = None
         while True:
+            await asyncio.sleep(0.1)
             status_response = await self.get_status(image_id)
             status = status_response.get('status')
-            error = status_response.get('error')
             last_modified_date = status_response.get('lastModifiedDate')
+            error = status_response.get('error')
             
             if old_modified_date != last_modified_date:
                 old_modified_date = last_modified_date
@@ -136,8 +145,5 @@ class WeightsApi:
                 break
             
             if status == 'FAILED':
-                raise Exception(f"Image generation failed. Error: {error}")
-            
-            await asyncio.sleep(0.1)
-
+                raise Exception(f"Image generation failed: {error}")
         return status_response

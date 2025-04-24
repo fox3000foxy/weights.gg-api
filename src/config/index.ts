@@ -2,7 +2,6 @@ import { config } from "dotenv";
 config();
 
 interface Config {
-  API_URL: string;
   API_KEY: string;
   WEIGHTS_GG_COOKIE: string;
   PORT: number;
@@ -13,7 +12,6 @@ interface Config {
 }
 
 export const weightsConfig: Config = {
-  API_URL: process.env.API_URL || "",
   API_KEY: process.env.API_KEY || "",
   WEIGHTS_GG_COOKIE: process.env.WEIGHTS_GG_COOKIE || "",
   PORT: parseInt(process.env.PORT || "3000", 10),
