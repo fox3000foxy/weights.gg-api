@@ -19,6 +19,7 @@ import "./controllers/healthController";
 import "./controllers/statusController";
 import "./controllers/generateController";
 import "./controllers/quotaController";
+import "./controllers/searchController";
 
 export const container = new Container();
 
