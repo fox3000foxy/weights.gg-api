@@ -38,41 +38,41 @@ Generated images expire after 10 minutes. Download promptly!
 ### 🔍 Search LoRAs
 
 - `/search-loras`
-        - **Query Parameter**:
-                - `query` (required): URL-encoded search term.
-        - **Response**: JSON array of LoRA objects:
-                - `name`: LoRA name.
-                - `image`: LoRA image URL.
-                - `tags`: Array of tags.
+    - **Query Parameter**:
+        - `query` (required): URL-encoded search term.
+    - **Response**: JSON array of LoRA objects:
+        - `name`: LoRA name.
+        - `image`: LoRA image URL.
+        - `tags`: Array of tags.
 
 ### 🚦 Image Status
 
 - `/status/:imageId`
-        - **Path Parameter**:
-                - `imageId` (required): Image ID.
-        - **Response**:
-                - `status`: (QUEUED, STARTING, PENDING, COMPLETED, FAILED, NOT_FOUND).
-                - `prompt`: Generation prompt.
-                - `startTime`: Start time.
-                - `lastModifiedDate`: Last status update.
-                - `error`: Error message (if applicable).
+    - **Path Parameter**:
+        - `imageId` (required): Image ID.
+    - **Response**:
+        - `status`: (QUEUED, STARTING, PENDING, COMPLETED, FAILED, NOT_FOUND).
+        - `prompt`: Generation prompt.
+        - `startTime`: Start time.
+        - `lastModifiedDate`: Last status update.
+        - `error`: Error message (if applicable).
 
 ### 🖼️ Generate Image
 
 - `/generateImage`
-        - **Query Parameters**:
-                - `prompt` (required): URL-encoded prompt.
-                - `loraName` (optional): URL-encoded LoRA name.
-        - **Response**:
-                - `success`: Boolean.
-                - `imageId`: Unique ID.
-                - `imageUrl`: Image URL.
-                - `statusUrl`: Status check URL.
+    - **Query Parameters**:
+        - `prompt` (required): URL-encoded prompt.
+        - `loraName` (optional): URL-encoded LoRA name.
+    - **Response**:
+        - `success`: Boolean.
+        - `imageId`: Unique ID.
+        - `imageUrl`: Image URL.
+        - `statusUrl`: Status check URL.
 
 ### 💰 API Quota
 
 - `/quota`: Retrieves API quota information.
-        - **Response**: Plain text quota details.
+    - **Response**: Plain text quota details.
 
 ## 📖 Libraries
 - [TS](https://github.com/fox3000foxy/weights.gg-api/blob/main/src/libs/weights-api.ts), [JS](https://github.com/fox3000foxy/weights.gg-api/blob/main/dist/libs/weights-api.js) and [Python](https://github.com/fox3000foxy/weights.gg-api/blob/main/weights-api.py) libraries are now availiable!
