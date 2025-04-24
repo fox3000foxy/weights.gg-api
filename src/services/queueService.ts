@@ -1,6 +1,8 @@
 import { EventEmitter } from "events";
 import { QueueItem } from "types";
+import { injectable } from "inversify";
 
+@injectable()
 export class Queue<T> extends EventEmitter {
   private queue: QueueItem<T>[];
   private maxSize: number;

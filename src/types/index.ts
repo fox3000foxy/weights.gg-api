@@ -92,3 +92,67 @@ export interface StatusUpdate {
   lastModifiedDate: string | null;
   error?: string | null;
 }
+
+export interface SafetyCheckResult {
+  stringIsUnsafe: boolean;
+  hasCSAM: boolean;
+  hasSelfHarm: boolean;
+}
+
+export interface ImageJobResult {
+  status: string;
+  outputUrl: string;
+}
+
+export interface ModelSuggestion {
+  id: string;
+  name: string;
+  description: string;
+  ImageLoraTrainingJob: Array<{
+    UploadedTrainingImage: Array<{ url: string }>;
+  }>;
+  isNSFW: boolean;
+  isPublic: boolean;
+  triggers: string[];
+}
+
+export interface Lora {
+  id: string;
+  name: string;
+  description: string;
+  image?: string;
+  tags: string[];
+  triggers: string[];
+}
+
+export interface CreateImageJobBody {
+  json: {
+    prompt: string;
+    seed: string | null;
+    loraId: string | null;
+    secondaryLoraId: string | null;
+    tertiaryLoraId: string | null;
+    dimensions: string;
+    inputImageUrl: string | null;
+    templatePromptId: string | null;
+  };
+  meta: {
+    values: {
+      seed: string[];
+      loraId: string[] | undefined;
+      secondaryLoraId: string[];
+      tertiaryLoraId: string[];
+      inputImageUrl: string[];
+      templatePromptId: string[];
+    };
+  };
+}
+
+export const TYPES = {
+  Config: Symbol.for("Config"),
+  DirectApiService: Symbol.for("DirectApiService"),
+  ImageService: Symbol.for("ImageService"),
+  StatusService: Symbol.for("StatusService"),
+  LoraService: Symbol.for("LoraService"),
+  Application: Symbol.for("Application"),
+};

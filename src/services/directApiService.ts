@@ -3,60 +3,46 @@ import { connect } from "puppeteer-real-browser";
 import type { Page } from "rebrowser-puppeteer-core";
 import StatusService from "./statusService";
 import ImageService from "./imageService";
+import { injectable, inject } from "inversify";
+import {
+  Lora,
+  SafetyCheckResult,
+  CreateImageJobBody,
+  ImageJobResult,
+  ModelSuggestion,
+  TYPES,
+} from "../types";
+import { Config } from "../config";
 
-interface SafetyCheckResult {
-  stringIsUnsafe: boolean;
-  hasCSAM: boolean;
-  hasSelfHarm: boolean;
-}
-
-interface ImageJobResult {
-  status: string;
-  outputUrl: string;
-}
-
-interface ModelSuggestion {
-  id: string;
-  name: string;
-  description: string;
-  ImageLoraTrainingJob: Array<{
-    UploadedTrainingImage: Array<{ url: string }>;
-  }>;
-  isNSFW: boolean;
-  isPublic: boolean;
-  triggers: string[];
-}
-
-interface Lora {
-  id: string;
-  name: string;
-  description: string;
-  image?: string;
-  tags: string[];
-  triggers: string[];
-}
-
-interface CreateImageJobBody {
-  json: {
-    prompt: string;
-    seed: string | null;
-    loraId: string | null;
-    secondaryLoraId: string | null;
-    tertiaryLoraId: string | null;
-    dimensions: string;
-    inputImageUrl: string | null;
-    templatePromptId: string | null;
-  };
-  meta: {
-    values: {
-      seed: string[];
-      loraId: string[] | undefined;
-      secondaryLoraId: string[];
-      tertiaryLoraId: string[];
-      inputImageUrl: string[];
-      templatePromptId: string[];
-    };
-  };
+export interface IDirectApiService {
+  initPuppeteer(): Promise<Page>;
+  sleep(ms: number): Promise<void>;
+  getUsage(): Promise<{ result: { data: { json: unknown } } }>;
+  checkPromptSafety(
+    prompt: string,
+  ): Promise<{ result: { data: { json: SafetyCheckResult } } }>;
+  createImageJob(prompt: string, loraId?: string | null): Promise<string>;
+  getImageJobById(
+    imageJobId: string,
+  ): Promise<{ result: { data: { json: ImageJobResult } } }>;
+  getModelSuggestions(
+    search: string,
+    limit?: number,
+    type?: string,
+  ): Promise<{ result: { data: { json: ModelSuggestion[] } } }>;
+  generateImageJob(
+    prompt: string,
+    imageId: string,
+    loraId?: string | null,
+  ): Promise<unknown>;
+  generateImage(
+    prompt: string,
+    imageId: string,
+    loraId?: string | null,
+  ): Promise<unknown>;
+  searchLoras(query: string): Promise<Lora[]>;
+  getQuotas(): Promise<unknown>;
+  sleep(ms: number): Promise<void>;
 }
 
 export class SignatureCreator {
@@ -78,7 +64,8 @@ export class SignatureCreator {
   }
 }
 
-export class DirectApiService {
+@injectable()
+export class DirectApiService implements IDirectApiService {
   private signatureCreator: SignatureCreator;
   private cookie: string;
   private headers: Record<string, string>;
@@ -87,16 +74,16 @@ export class DirectApiService {
   private imageService: ImageService | null = null;
 
   constructor(
-    cookie: string,
-    statusService: StatusService,
-    imageService: ImageService,
+    @inject(TYPES.Config) config: Config,
+    @inject(TYPES.StatusService) statusService: StatusService,
+    @inject(TYPES.ImageService) imageService: ImageService,
   ) {
     this.signatureCreator = new SignatureCreator(
       "j1UO381eyUAhn6Uo/PnuExzhyxR5qGOxe7b92OwTpOc",
     );
     this.statusService = statusService;
     this.imageService = imageService;
-    this.cookie = cookie;
+    this.cookie = config.WEIGHTS_GG_COOKIE;
     this.headers = {
       accept: "*/*",
       "cache-control": "no-cache",
@@ -108,7 +95,7 @@ export class DirectApiService {
     };
   }
 
-  async initPuppeteer() {
+  async initPuppeteer(): Promise<Page> {
     const { page }: { page: Page } = await connect({
       headless: true,
       args: [],
@@ -145,7 +132,7 @@ export class DirectApiService {
     return this.page;
   }
 
-  async sleep(ms: number) {
+  async sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 

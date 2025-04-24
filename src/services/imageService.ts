@@ -4,12 +4,28 @@ import sharp from "sharp";
 import * as https from "https";
 import * as crypto from "crypto";
 import { Config } from "../config";
+import { injectable, inject } from "inversify";
+import { TYPES } from "../types";
 
-export class ImageService {
+export interface IImageService {
+  generateImageId(): string;
+  downloadImage(url: string, imageId: string): Promise<string>;
+  saveBase64Image(
+    base64URL: string,
+    imageId: string,
+    isFinal?: boolean,
+  ): Promise<string>;
+  startCleanupInterval(): void;
+  stopCleanupInterval(): void;
+  runCleanupOnce(): void;
+}
+
+@injectable()
+export class ImageService implements IImageService {
   private cleanupIntervalId: NodeJS.Timeout | null = null;
   private readonly config: Config;
 
-  constructor(config: Config) {
+  constructor(@inject(TYPES.Config) config: Config) {
     this.config = config;
     this.startCleanupInterval();
   }

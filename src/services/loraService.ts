@@ -2,8 +2,18 @@ import * as fs from "fs";
 import { Config } from "../config";
 import { LoraResult } from "types";
 import DirectApiService from "./directApiService";
+import { injectable } from "inversify";
 
-export class LoraService {
+export interface ILoraService {
+  config: Config;
+  loraSearchCache: Map<string, LoraResult[]>;
+  directApiService: DirectApiService;
+  searchLoras(loraName: string): Promise<LoraResult[]>;
+  saveLoraCache(): void;
+}
+
+@injectable()
+export class LoraService implements ILoraService {
   public config: Config;
   public loraSearchCache: Map<string, LoraResult[]>;
   public directApiService: DirectApiService;
