@@ -98,10 +98,7 @@ async function main() {
     statusService.updateImageStatus(data.imageId, data.status, data.error);
   });
 
-  const previewHandler = new PreviewHandler(
-    imageService,
-    emitter,
-  );
+  const previewHandler = new PreviewHandler(imageService, emitter);
 
   if (!puppeteerService.generationPage) return;
   if (!puppeteerService.loraSearchPage) return;
