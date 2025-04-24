@@ -86,9 +86,17 @@ export interface SearchLoraJob extends LoraSearchJob {
   data: object;
 }
 
+export enum Status {
+  STARTING = "STARTING",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
+  PENDING = "PENDING",
+  QUEUED = "QUEUED",
+}
+
 export interface StatusUpdate {
   imageId: string;
-  status: "STARTING" | "COMPLETED" | "FAILED" | "PENDING" | "QUEUED";
+  status: Status;
   lastModifiedDate: string | null;
   error?: string | null;
 }
