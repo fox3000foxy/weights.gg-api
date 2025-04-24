@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { inject } from "inversify";
 import { TYPES } from "../types";
 import { Config } from "../config";
-import { apiKeyCheck } from "../middlewares/apiKeycheck";
+import { apiKeyCheck } from "../middlewares/apiKeyCheck";
 
 @controller("/health")
 export class HealthController implements interfaces.Controller {

@@ -6,7 +6,7 @@ import { Config } from "../config";
 import ImageService from "../services/imageService";
 import StatusService from "../services/statusService";
 import DirectApiService from "../services/directApiService";
-import { apiKeyCheck } from "../middlewares/apiKeycheck";
+import { apiKeyCheck } from "../middlewares/apiKeyCheck";
 
 @controller("/generateImage")
 export class GenerateImageController implements interfaces.Controller {

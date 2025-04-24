@@ -4,7 +4,7 @@ import { inject } from "inversify";
 import { TYPES } from "../types";
 import { Config } from "../config";
 import { DirectApiService } from "../services/directApiService";
-import { apiKeyCheck } from "../middlewares/apiKeycheck";
+import { apiKeyCheck } from "../middlewares/apiKeyCheck";
 
 @controller("/quota")
 export class QuotaController implements interfaces.Controller {

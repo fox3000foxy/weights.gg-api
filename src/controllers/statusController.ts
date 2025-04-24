@@ -4,7 +4,7 @@ import { inject } from "inversify";
 import { TYPES } from "../types";
 import { Config } from "../config";
 import StatusService from "../services/statusService";
-import { apiKeyCheck } from "../middlewares/apiKeycheck";
+import { apiKeyCheck } from "../middlewares/apiKeyCheck";
 
 @controller("/status")
 export class StatusController implements interfaces.Controller {
