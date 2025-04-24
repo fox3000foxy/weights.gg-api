@@ -1,24 +1,21 @@
 import * as fs from "fs";
 import { Config } from "../config";
-import { LoraResult } from "types";
+import { LoraResult, TYPES } from "../types";
 import DirectApiService from "./directApiService";
-import { injectable } from "inversify";
+import { inject, injectable } from "inversify";
 
 export interface ILoraService {
-  config: Config;
   loraSearchCache: Map<string, LoraResult[]>;
-  directApiService: DirectApiService;
   searchLoras(loraName: string): Promise<LoraResult[]>;
   saveLoraCache(): void;
 }
 
 @injectable()
 export class LoraService implements ILoraService {
-  public config: Config;
   public loraSearchCache: Map<string, LoraResult[]>;
   public directApiService: DirectApiService;
 
-  constructor(config: Config, directApiService: DirectApiService) {
+  constructor(@inject(TYPES.Config) private config: Config, @inject(TYPES.DirectApiService) directApiService: DirectApiService) {
     this.config = config;
     this.loraSearchCache = new Map();
     this.loadLoraCache();
