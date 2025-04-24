@@ -25,15 +25,14 @@ export interface Lora {
   name: string;
   description: string;
   tags: string[];
-  // other properties
+  image: string;
 }
 
-export interface Params 
-{ 
-  [key: string]: object | string | null 
+export interface Params {
+  [key: string]: object | string | null;
 }
 
-export interface GenerationParams extends Params{
+export interface GenerationParams extends Params {
   prompt: string;
   loraName: string | null;
 }
@@ -148,7 +147,9 @@ export class WeightsApi {
    */
   getQuota = async (): Promise<string> => {
     return this.callWithHealthCheck(() =>
-      this.apiCall("/quota", HttpMethod.GET).then((response) => response.text()),
+      this.apiCall("/quota", HttpMethod.GET).then((response) =>
+        response.text(),
+      ),
     );
   };
 
@@ -170,7 +171,9 @@ export class WeightsApi {
    * @param params - Object containing query and optional loraName.
    * @returns Promise with generation results.
    */
-  generateImage = async (params: GenerationParams): Promise<GenerationResult> => {
+  generateImage = async (
+    params: GenerationParams,
+  ): Promise<GenerationResult> => {
     return this.callWithHealthCheck(() =>
       this.apiCall("/generateImage", HttpMethod.GET, params).then((response) =>
         response.json(),
