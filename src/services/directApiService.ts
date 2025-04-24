@@ -138,7 +138,7 @@ export class DirectApiService implements IDirectApiService {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  async getUsage(): Promise<{ result: { data: { json: unknown } } }> {
+  async getUsage(): Promise<ApiResponse<unknown>> {
     const url =
       "https://www.weights.com/api/data/users.getUsage?input=%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%7D%7D";
     const signature = this.signatureCreator.createSignature(
@@ -163,7 +163,7 @@ export class DirectApiService implements IDirectApiService {
 
   async checkPromptSafety(
     prompt: string,
-  ): Promise<{ result: { data: { json: SafetyCheckResult } } }> {
+  ): Promise<ApiResponse<SafetyCheckResult>> {
     const signature = this.signatureCreator.createSignature(
       "llm.checkStringForSafety",
       prompt,
@@ -255,7 +255,7 @@ export class DirectApiService implements IDirectApiService {
 
   async getImageJobById(
     imageJobId: string,
-  ): Promise<{ result: { data: { json: ImageJobResult } } }> {
+  ): Promise<ApiResponse<ImageJobResult>> {
     const signature = this.signatureCreator.createSignature(
       "creations.getImageJobById",
       imageJobId,
@@ -284,7 +284,7 @@ export class DirectApiService implements IDirectApiService {
     search: string,
     limit: number = 25,
     type: string = "all",
-  ): Promise<{ result: { data: { json: ModelSuggestion[] } } }> {
+  ): Promise<ApiResponse<ModelSuggestion[]>> {
     const body = {
       search,
       limit,
