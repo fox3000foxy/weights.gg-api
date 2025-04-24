@@ -14,22 +14,26 @@ import {
 } from "../types";
 import { Config } from "../config";
 
+export interface ApiResponse<T> {
+  result: {
+    data: {
+      json: T;
+    };
+  };
+}
+
 export interface IDirectApiService {
   initPuppeteer(): Promise<Page>;
   sleep(ms: number): Promise<void>;
-  getUsage(): Promise<{ result: { data: { json: unknown } } }>;
-  checkPromptSafety(
-    prompt: string,
-  ): Promise<{ result: { data: { json: SafetyCheckResult } } }>;
+  getUsage(): Promise<ApiResponse<unknown>>;
+  checkPromptSafety(prompt: string): Promise<ApiResponse<SafetyCheckResult>>;
   createImageJob(prompt: string, loraId?: string | null): Promise<string>;
-  getImageJobById(
-    imageJobId: string,
-  ): Promise<{ result: { data: { json: ImageJobResult } } }>;
+  getImageJobById(imageJobId: string): Promise<ApiResponse<ImageJobResult>>;
   getModelSuggestions(
     search: string,
     limit?: number,
     type?: string,
-  ): Promise<{ result: { data: { json: ModelSuggestion[] } } }>;
+  ): Promise<ApiResponse<ModelSuggestion[]>>;
   generateImageJob(
     prompt: string,
     imageId: string,
@@ -70,13 +74,11 @@ export class DirectApiService implements IDirectApiService {
   private cookie: string;
   private headers: Record<string, string>;
   private page: Page | null = null;
-  private statusService: StatusService | null = null;
-  private imageService: ImageService | null = null;
-
+  
   constructor(
     @inject(TYPES.Config) config: Config,
-    @inject(TYPES.StatusService) statusService: StatusService,
-    @inject(TYPES.ImageService) imageService: ImageService,
+    @inject(TYPES.StatusService) private readonly statusService: StatusService,
+    @inject(TYPES.ImageService) private readonly imageService: ImageService,
   ) {
     this.signatureCreator = new SignatureCreator(
       "j1UO381eyUAhn6Uo/PnuExzhyxR5qGOxe7b92OwTpOc",
