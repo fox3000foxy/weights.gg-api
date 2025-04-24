@@ -100,7 +100,6 @@ async function main() {
 
   const previewHandler = new PreviewHandler(
     imageService,
-    statusService,
     emitter,
   );
 
