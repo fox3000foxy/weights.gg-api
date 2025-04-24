@@ -21,8 +21,11 @@ jobs:
               with:
                   node-version: '20'
 
+            - name: Install dependencies "eslint"
+              run: npm install eslint
+
             - name: Install dependencies
-              run: npm install
+              run: npm install typescript "typescript"
 
             - name: Lint with ESLint
               run: npm run lint
