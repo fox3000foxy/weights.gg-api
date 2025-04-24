@@ -24,8 +24,8 @@ jobs:
             - name: Install dependencies "eslint"
               run: npm install eslint
 
-            - name: Install dependencies
-              run: npm install typescript "typescript"
+            - name: Install dependencies "typescript"
+              run: npm install typescript 
 
             - name: Lint with ESLint
               run: npm run lint
