@@ -4,7 +4,7 @@
   "description": "A project for image processing and Lora search using Puppeteer and Express.",
   "main": "src/index.ts",
   "scripts": {
-    "start": "npx ts-node src/index.ts",
+    "start": "npx node dist/index.js",
     "lint": "npx eslint src --ext .ts",
     "lint:fix": "npx eslint src --ext .ts --fix",
     "format": "npx prettier --write src",
