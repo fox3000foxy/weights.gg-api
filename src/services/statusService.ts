@@ -1,4 +1,3 @@
-// filepath: weights-selenium/src/services/statusService.ts
 export class StatusService {
   public imageStatuses: {
     [key: string]: {
