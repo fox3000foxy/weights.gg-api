@@ -1,4 +1,27 @@
-export class StatusService {
+import { injectable } from "inversify";
+
+export interface IStatusService {
+  imageStatuses: {
+    [key: string]: {
+      status: string;
+      lastModifiedDate?: number;
+      error: string | null;
+    };
+  };
+  updateImageStatus(
+    imageId: string,
+    status: string,
+    errorMessage?: string | null,
+  ): void;
+  getImageStatus(
+    imageId: string,
+  ):
+    | { status: string; lastModifiedDate?: number; error: string | null }
+    | undefined;
+}
+
+@injectable()
+export class StatusService implements IStatusService {
   public imageStatuses: {
     [key: string]: {
       status: string;
