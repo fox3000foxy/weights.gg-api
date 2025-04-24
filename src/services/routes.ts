@@ -34,10 +34,7 @@ const statusRoute =
   };
 
 const searchLoraRoute =
-  (
-    loraService: LoraService
-  ) =>
-  async (req: Request, res: Response) => {
+  (loraService: LoraService) => async (req: Request, res: Response) => {
     const { query } = req.query;
     if (!query || typeof query !== "string") {
       res.status(400).send({
@@ -131,20 +128,24 @@ const generateImageRoute =
       res.send({
         success: true,
         imageId: imageId,
-        statusUrl: req.hostname+`/status/${imageId}`,
+        statusUrl: req.hostname + `/status/${imageId}`,
       });
     } else {
       statusService.updateImageStatus(imageId, "QUEUED");
 
-      if(loraName && typeof loraName === "string") {
+      if (loraName && typeof loraName === "string") {
         const loras = await directApiService.searchLoras(loraName);
-        if(loras.length === 0) {
+        if (loras.length === 0) {
           directApiService.generateImage(prompt, imageId);
         }
         const loraId = loras[0]?.id;
         const triggerWord = loras[0]?.triggers[0];
         statusService.updateImageStatus(imageId, "STARTING");
-        directApiService.generateImage(triggerWord +", " + prompt, imageId, loraId);
+        directApiService.generateImage(
+          triggerWord + ", " + prompt,
+          imageId,
+          loraId,
+        );
       } else {
         statusService.updateImageStatus(imageId, "STARTING");
         directApiService.generateImage(prompt, imageId);
@@ -171,24 +172,16 @@ export const setupRoutes = (
   loraSerice: LoraService,
   statusService: StatusService,
   imageService: ImageService,
-  directApiService: DirectApiService
+  directApiService: DirectApiService,
 ): void => {
   app.use(apiKeyCheck(config));
 
   app.get("/health", healthRoute);
   app.get("/status/:imageId", statusRoute(statusService));
-  app.get(
-    "/search-loras",
-    searchLoraRoute(loraSerice),
-  );
+  app.get("/search-loras", searchLoraRoute(loraSerice));
   app.get(
     "/generateImage",
-    generateImageRoute(
-      config,
-      imageService,
-      directApiService,
-      statusService,
-    ),
+    generateImageRoute(config, imageService, directApiService, statusService),
   );
   app.get("/quota", quotaRoute(directApiService));
 };

@@ -36,9 +36,7 @@ export class Queue<T> extends EventEmitter {
     return this.queue.length === 0;
   }
 
-  public async process(
-    processor: (job: T) => Promise<void>
-  ): Promise<void> {
+  public async process(processor: (job: T) => Promise<void>): Promise<void> {
     if (this.processing) return;
 
     this.processor = processor;
@@ -83,4 +81,3 @@ export class Queue<T> extends EventEmitter {
     }
   }
 }
-

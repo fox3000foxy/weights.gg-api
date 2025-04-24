@@ -16,10 +16,9 @@ const statusService = new StatusService();
 const directApiService = new DirectApiService(
   config.WEIGHTS_GG_COOKIE,
   statusService,
-  imageService
-)
+  imageService,
+);
 const loraService = new LoraService(config, directApiService);
-
 
 // --- Express App ---
 const app = express();
@@ -27,7 +26,6 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, config.IMAGE_DIR)));
-
 
 // --- Main Function ---
 async function main() {
@@ -39,7 +37,7 @@ async function main() {
     );
   }
 
-  await directApiService.initPuppeteer()
+  await directApiService.initPuppeteer();
 
   setupRoutes(
     app,

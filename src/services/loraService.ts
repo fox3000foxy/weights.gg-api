@@ -15,16 +15,14 @@ export class LoraService {
     this.directApiService = directApiService;
   }
 
-  public async searchLoras(
-    loraName: string
-  ): Promise<LoraResult[]> {
+  public async searchLoras(loraName: string): Promise<LoraResult[]> {
     if (this.loraSearchCache.has(loraName)) {
       console.log(`Lora cache hit for ${loraName}`);
       return this.loraSearchCache.get(loraName) || [];
     }
 
     const loras = await this.directApiService.searchLoras(loraName);
-    if(loras.length !== 0) {
+    if (loras.length !== 0) {
       this.loraSearchCache.set(loraName, loras);
       this.saveLoraCache();
     }
