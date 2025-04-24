@@ -136,4 +136,4 @@ out
 
 images/*
 lora_cache.json
-dist
+dist/*
