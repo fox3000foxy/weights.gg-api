@@ -54,7 +54,7 @@ export class StatusService implements IStatusService {
   ):
     | { status: string; lastModifiedDate?: number; error: string | null }
     | undefined {
-    return this.imageStatuses[imageId];
+    return this.imageStatuses[imageId] || {status: "NOT_FOUND", error: null};
   }
 }
 

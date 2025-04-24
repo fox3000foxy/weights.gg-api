@@ -53,7 +53,6 @@ Generated images expire after 10 minutes. Download promptly!
     - **Response**:
         - `status`: (QUEUED, STARTING, PENDING, COMPLETED, FAILED, NOT_FOUND).
         - `prompt`: Generation prompt.
-        - `startTime`: Start time.
         - `lastModifiedDate`: Last status update.
         - `error`: Error message (if applicable).
 
