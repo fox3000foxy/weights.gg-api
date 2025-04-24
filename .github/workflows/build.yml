@@ -14,21 +14,21 @@ jobs:
 
         steps:
             - name: Checkout code
-                uses: actions/checkout@v3
+              uses: actions/checkout@v3
 
             - name: Set up Node.js
-                uses: actions/setup-node@v3
-                with:
-                    node-version: '20'
+              uses: actions/setup-node@v3
+              with:
+                  node-version: '20'
 
             - name: Lint with ESLint
-                run: npm run lint
+              run: npm run lint
 
             - name: Install dependencies
-                run: npm install
+              run: npm install
 
             - name: Build
-                run: npm run build
+              run: npm run build
 
             - name: Test with Jest
-                run: npm run test
+              run: npm run test
