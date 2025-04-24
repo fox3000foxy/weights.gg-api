@@ -1,12 +1,10 @@
 import { EventEmitter } from "events";
 import { ImageService } from "../services/imageService";
-import { StatusService } from "../services/statusService";
 import { EVENT_TYPES, ImageGenerationResult } from "../types";
 
 export class PreviewHandler {
   constructor(
     private imageService: ImageService,
-    private statusService: StatusService,
     private emitter: EventEmitter,
   ) {}
 

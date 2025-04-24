@@ -1,4 +1,3 @@
-// filepath: weights-selenium/src/processors/imageProcessor.ts
 import { PuppeteerService } from "../services/puppeteerService";
 import { ImageService } from "../services/imageService";
 import { LoraService } from "../services/loraService";
@@ -32,7 +31,7 @@ export class ImageProcessor {
   ) {}
 
   async processImage(job: Job, page: Page): Promise<void> {
-    const { prompt, loraName, imageId, emitter } = job;
+    const { prompt, loraName, imageId } = job;
     const retries = this.retryCount.get(imageId) || 0;
 
     if (!page) {
@@ -64,7 +63,6 @@ export class ImageProcessor {
       const result = await generateImage(
         decodeURIComponent(prompt),
         page,
-        emitter,
         imageId,
       );
       await this.handleImageResult(result, imageId);

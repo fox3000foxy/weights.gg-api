@@ -1,11 +1,9 @@
 import { Page } from "rebrowser-puppeteer-core";
-import { EventEmitter } from "events";
 import { ImageGenerationResult } from "types";
 
 export async function generateImage(
   prompt: string,
   page: Page,
-  emitter: EventEmitter,
   imageId: string,
 ): Promise<ImageGenerationResult> {
   console.log("Generating image with prompt:", prompt);
