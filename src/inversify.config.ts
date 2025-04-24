@@ -15,10 +15,10 @@ import { IStatusService, StatusService } from "./services/statusService";
 import { ILoraService, LoraService } from "./services/loraService";
 
 // Import controllers
-import "./controllers/healthController.ts";
-import "./controllers/statusController.ts";
-import "./controllers/generateController.ts";
-import "./controllers/quotaController.ts";
+import "./controllers/healthController";
+import "./controllers/statusController";
+import "./controllers/generateController";
+import "./controllers/quotaController";
 
 export const container = new Container();
 
