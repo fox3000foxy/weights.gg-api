@@ -38,10 +38,11 @@ export class ImageService {
   }
 
   public async saveBase64Image(
-    base64Data: string,
+    base64URL: string,
     imageId: string,
     isFinal = false,
   ): Promise<string> {
+    const base64Data = base64URL.split(",")[1];
     const buffer = Buffer.from(base64Data, "base64");
     const filePath = path.join(
       path.join(__dirname, "..", this.config.IMAGE_DIR),

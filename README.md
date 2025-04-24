@@ -72,7 +72,79 @@ Generated images expire after 10 minutes. Download promptly!
 ### 💰 API Quota
 
 - `/quota`: Retrieves API quota information.
-    - **Response**: Plain text quota details.
+    - **Response**: JSON object containing quota details, including limits, usage, and remaining credits for various features.
+
+    ```json
+    {
+    "isPremium": true,
+    "usage": {
+        "QUEUED_IMAGE_JOBS": 0,
+        "QUEUED_COVER_JOBS": 0,
+        "QUEUED_SONG_JOBS": 0,
+        "QUEUED_VIDEO_JOBS": 0,
+        "QUEUED_VOICE_TRAINING_JOBS": 0,
+        "QUEUED_IMAGE_TRAINING_JOBS": 0,
+        "QUEUED_VIDEO_TRAINING_JOBS": 0,
+        "DAILY_IMAGE_CREATIONS": 92,
+        "DAILY_COVER_CREATIONS": 0,
+        "DAILY_VIDEO_CREATIONS": 0,
+        "DAILY_IMAGE_EDITS": 0,
+        "DAILY_SONG_CREATIONS": 0,
+        "DAILY_FAST_IMAGE_TRAINING_JOBS": 0,
+        "VOYAGES_DAILY_IMAGE_CREATIONS": 0,
+        "WEEKLY_IMAGE_TRAINING_JOBS": 0,
+        "WEEKLY_VIDEO_TRAINING_JOBS": 0,
+        "VOYAGES_WEEKLY_IMAGE_TRAINING_JOBS": 0,
+        "WEEKLY_VOICE_TRAINING_JOBS": 0
+    },
+    "limits": {
+        "QUEUED_IMAGE_JOBS": 40,
+        "QUEUED_COVER_JOBS": 25,
+        "QUEUED_SONG_JOBS": 10,
+        "QUEUED_VIDEO_JOBS": 3,
+        "QUEUED_VOICE_TRAINING_JOBS": 10,
+        "QUEUED_IMAGE_TRAINING_JOBS": 15,
+        "QUEUED_VIDEO_TRAINING_JOBS": 1,
+        "DAILY_IMAGE_CREATIONS": 1500,
+        "DAILY_COVER_CREATIONS": "Infinity",
+        "DAILY_VIDEO_CREATIONS": 20,
+        "DAILY_IMAGE_EDITS": 20,
+        "DAILY_SONG_CREATIONS": 150,
+        "DAILY_FAST_IMAGE_TRAINING_JOBS": 1,
+        "WEEKLY_IMAGE_TRAINING_JOBS": 100,
+        "WEEKLY_VOICE_TRAINING_JOBS": 100,
+        "WEEKLY_VIDEO_TRAINING_JOBS": 10,
+        "CHAT_CONVERSATIONS": "Infinity",
+        "CHAT_MESSAGES": "Infinity",
+        "COVER_AUDIO_LENGTH_SECONDS": 1800,
+        "VOYAGES_DAILY_IMAGE_CREATIONS": "Infinity",
+        "VOYAGES_WEEKLY_IMAGE_TRAINING_JOBS": 3
+    },
+    "remaining": {
+        "QUEUED_IMAGE_JOBS": 40,
+        "QUEUED_COVER_JOBS": 25,
+        "QUEUED_SONG_JOBS": 10,
+        "QUEUED_VIDEO_JOBS": 3,
+        "QUEUED_VOICE_TRAINING_JOBS": 10,
+        "QUEUED_IMAGE_TRAINING_JOBS": 15,
+        "QUEUED_VIDEO_TRAINING_JOBS": 1,
+        "DAILY_IMAGE_CREATIONS": 1408,
+        "DAILY_COVER_CREATIONS": "Infinity",
+        "DAILY_VIDEO_CREATIONS": 20,
+        "DAILY_IMAGE_EDITS": 20,
+        "DAILY_SONG_CREATIONS": 150,
+        "DAILY_FAST_IMAGE_TRAINING_JOBS": 1,
+        "WEEKLY_IMAGE_TRAINING_JOBS": 100,
+        "WEEKLY_VOICE_TRAINING_JOBS": 100,
+        "WEEKLY_VIDEO_TRAINING_JOBS": 10,
+        "CHAT_CONVERSATIONS": "Infinity",
+        "CHAT_MESSAGES": "Infinity",
+        "COVER_AUDIO_LENGTH_SECONDS": 1800,
+        "VOYAGES_DAILY_IMAGE_CREATIONS": "Infinity",
+        "VOYAGES_WEEKLY_IMAGE_TRAINING_JOBS": 3
+    }
+    }
+    ```
 
 ## 📖 Libraries
 - [TS](https://github.com/fox3000foxy/weights.gg-api/blob/main/src/libs/weights-api.ts), [JS](https://github.com/fox3000foxy/weights.gg-api/blob/main/dist/libs/weights-api.js) and [Python](https://github.com/fox3000foxy/weights.gg-api/blob/main/weights-api.py) libraries are now availiable!

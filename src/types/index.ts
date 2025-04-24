@@ -1,6 +1,3 @@
-// src/types/index.ts
-
-import { EventEmitter } from "events";
 import { Response } from "express";
 import { Page } from "rebrowser-puppeteer-core";
 
@@ -40,7 +37,6 @@ export interface Job {
   prompt: string;
   loraName: string | null;
   imageId: string;
-  emitter: EventEmitter;
 }
 
 export interface GenerateImageJob extends Job {
@@ -48,9 +44,12 @@ export interface GenerateImageJob extends Job {
 }
 
 export interface LoraResult {
+  id: string;
   name: string;
-  image: string;
+  description: string;
+  image?: string;
   tags: string[];
+  triggers: string[];
 }
 
 export interface LoraSearchResult {
