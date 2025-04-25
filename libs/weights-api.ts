@@ -185,17 +185,19 @@ export class WeightsApi {
    * Generates audio from text.
    * @param voiceModelId - The ID of the voice model to use.
    * @param text - The text to convert to speech.
+   * @param pitch - The pitch of the voice (optional).
    * @returns Promise with generation results.
    */
   generateFromTTS = async (
     voiceModelName: string,
     text: string,
+    pitch: number = 0,
   ): Promise<{result: string}> => {
     return this.callWithHealthCheck(() =>
       this.apiCall(
         "/voice",
         HttpMethod.POST,
-        { voiceModelName, text },
+        { voiceModelName, text, pitch: pitch.toString() },
       ).then((response) => response.json()),
     );
   };
@@ -204,17 +206,19 @@ export class WeightsApi {
    * Generates audio from an audio URL.
    * @param voiceModelId - The ID of the voice model to use.
    * @param audioUrl - The URL of the audio file to use as input.
+   * @param pitch - The pitch of the voice (optional).
    * @returns Promise with generation results.
    */
   generateFromAudioURL = async (
     voiceModelName: string,
     audioUrl: string,
+    pitch: number = 0,
   ): Promise<{result: string}> => {
     return this.callWithHealthCheck(() =>
       this.apiCall(
         "/voice",
         HttpMethod.POST,
-        { voiceModelName, audioUrl },
+        { voiceModelName, audioUrl, pitch: pitch.toString() },
       ).then((response) => response.json()),
     );
   };

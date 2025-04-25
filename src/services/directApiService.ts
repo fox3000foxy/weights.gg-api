@@ -414,6 +414,7 @@ export class DirectApiService implements IDirectApiService {
     audioModelId: string,
     prompt?: string,
     inputUrl?: string,
+    pitch: number = 0,
   ): Promise<string> {
     const body = {
       "json": {
@@ -425,7 +426,7 @@ export class DirectApiService implements IDirectApiService {
           "origin": "WEB",
           "inputType": inputUrl? "RECORDING" : "TTS",
           "inputFileName": inputUrl ? "Custom Recording" : undefined,
-          "pitch": 0,
+          "pitch": pitch,
           "instrumentalPitch": undefined,
           "deEcho": undefined,
           "isolateMainVocals": undefined,
@@ -717,6 +718,7 @@ export class DirectApiService implements IDirectApiService {
     audioModelId: string,
     prompt?: string,
     inputUrl?: string,
+    pitch: number = 0
   ): Promise<string> {
     if (!this.page) {
       throw new Error(
@@ -726,8 +728,8 @@ export class DirectApiService implements IDirectApiService {
     if (!prompt && !audioModelId) {
       throw new Error("Prompt or audioModelId is required for Lora search.");
     }
-    const result = await this.page.evaluate(async (prompt, audioModelId, inputUrl) => {
-      const loraSearchResult = await this.createCoverStemOrTtsJob(audioModelId, prompt, inputUrl);
+    const result = await this.page.evaluate(async (prompt, audioModelId, inputUrl, pitch) => {
+      const loraSearchResult = await this.createCoverStemOrTtsJob(audioModelId, prompt, inputUrl, pitch);
       this.log("Lora search result: ", loraSearchResult);
       let getImageJobByIdRequest = await this.getPendingJobs([loraSearchResult]);
       let getImageJobByIdResult = getImageJobByIdRequest.result.data.json;
@@ -740,7 +742,7 @@ export class DirectApiService implements IDirectApiService {
       }
 
       return "https://tracks.weights.com/" + loraSearchResult + "/output_track.mp3";
-    }, prompt, audioModelId, inputUrl);
+    }, prompt, audioModelId, inputUrl, pitch);
     return result;
   }
 
