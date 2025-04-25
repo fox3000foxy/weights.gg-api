@@ -731,15 +731,27 @@ export class DirectApiService implements IDirectApiService {
       const loraSearchResult = await this.createCoverStemOrTtsJob(audioModelId, prompt, inputUrl, pitch);
       this.log("Lora search result: ", loraSearchResult);
       await this.sleep(1000);
-      let getImageJobByIdRequest = await this.getPendingJobs([loraSearchResult]);
-      let getImageJobByIdResult = getImageJobByIdRequest.result.data.json;
-      let result = getImageJobByIdResult.coverJobs[0];
-      while (result.status !== "SUCCEEDED") {
+
+      // THIS BELOW CODE IS NOT WORKING, NEEDS TO BE FIXED, CLOUDFARE ISSUES
+      // let getImageJobByIdRequest = await this.getPendingJobs([loraSearchResult]);
+      // let getImageJobByIdResult = getImageJobByIdRequest.result.data.json;
+      // let result = getImageJobByIdResult.coverJobs[0];
+      // while (result.status !== "SUCCEEDED") {
+      //   await this.sleep(1000);
+      //   getImageJobByIdRequest = await this.getPendingJobs([loraSearchResult]);
+      //   getImageJobByIdResult = getImageJobByIdRequest.result.data.json;
+      //   result = getImageJobByIdResult.coverJobs[0];
+      // }
+
+      // Bypassing the above issue workaround
+      let convertedUrl = await fetch("https://tracks.weights.com/" + loraSearchResult + "/output_track.mp3").then(res=>res.text());
+      while (convertedUrl.indexOf("Error 404")) {
         await this.sleep(1000);
-        getImageJobByIdRequest = await this.getPendingJobs([loraSearchResult]);
-        getImageJobByIdResult = getImageJobByIdRequest.result.data.json;
-        result = getImageJobByIdResult.coverJobs[0];
-      }
+        convertedUrl = await fetch("https://tracks.weights.com/" + loraSearchResult + "/output_track.mp3").then(res=>res.text());
+        if (convertedUrl.indexOf("Error 404") === -1) {
+          break;
+        }
+      } 
 
       return "https://tracks.weights.com/" + loraSearchResult + "/output_track.mp3";
     }, prompt, audioModelId, inputUrl, parseInt(pitch));
