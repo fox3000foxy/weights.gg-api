@@ -497,8 +497,8 @@ export class DirectApiService implements IDirectApiService {
         headers: { ...this.headers, "x-payload-sig": signature },
       });
 
-
       const data = await response.text();
+      // console.log("getPendingJobs data: ", data);
 
       return JSON.parse(data);
     } catch (err) {
@@ -734,7 +734,7 @@ export class DirectApiService implements IDirectApiService {
       let getImageJobByIdResult = getImageJobByIdRequest.result.data.json;
       let result = getImageJobByIdResult.coverJobs[0];
       while (result.status !== "SUCCEEDED") {
-        await this.sleep(100);
+        await this.sleep(1000);
         getImageJobByIdRequest = await this.getPendingJobs([loraSearchResult]);
         getImageJobByIdResult = getImageJobByIdRequest.result.data.json;
         result = getImageJobByIdResult.coverJobs[0];
