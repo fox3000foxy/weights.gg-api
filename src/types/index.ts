@@ -156,6 +156,13 @@ export interface CreateImageJobBody {
   };
 }
 
+export interface AudioModel {
+  id: string,
+  title: string,
+  content: string,
+  image: string,
+}
+
 export const TYPES = {
   Config: Symbol.for("Config"),
   DirectApiService: Symbol.for("DirectApiService"),

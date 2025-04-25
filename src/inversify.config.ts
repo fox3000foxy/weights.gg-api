@@ -3,6 +3,7 @@ import { Container } from "inversify";
 import { InversifyExpressServer } from "inversify-express-utils";
 import * as express from "express";
 import * as path from "path";
+import cors from "cors";
 
 import { TYPES } from "./types";
 import { Config, weightsConfig } from "./config";
@@ -20,6 +21,7 @@ import "./controllers/statusController";
 import "./controllers/generateController";
 import "./controllers/quotaController";
 import "./controllers/searchController";
+import "./controllers/voiceController";
 
 export const container = new Container();
 
@@ -47,6 +49,7 @@ const server = new InversifyExpressServer(container);
 
 server.setConfig((app) => {
   app.use(express.json());
+  app.use(cors());
   app.use(express.urlencoded({ extended: true }));
   app.use(express.static(path.join(__dirname, weightsConfig.IMAGE_DIR)));
 });

@@ -11,8 +11,12 @@ import {
   ImageJobResult,
   ModelSuggestion,
   TYPES,
+  AudioModel,
 } from "../types";
 import { Config } from "../config";
+import { randomUUID } from "crypto";
+import fs from 'fs';
+import https from 'https';
 
 export interface ApiResponse<T> {
   result: {
@@ -143,11 +147,19 @@ export class DirectApiService implements IDirectApiService {
       this.generateImageJob.bind(this),
     );
     await this.page.exposeFunction("sleep", this.sleep.bind(this));
+    await this.page.exposeFunction("randomUUID", this.randomUUID.bind(this));
+    await this.page.exposeFunction("readFile", this.readFile.bind(this));
+    await this.page.exposeFunction("log", this.log.bind(this));
+    await this.page.exposeFunction("getAudioUploadUrl", this.getAudioUploadUrl.bind(this));
     return this.page;
   }
 
   async sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  log(...args: unknown[]): void {
+    console.log(...args);
   }
 
   async getUsage(): Promise<ApiResponse<unknown>> {
@@ -340,7 +352,6 @@ export class DirectApiService implements IDirectApiService {
       "models.searchAudioModels",
       search,
     );
-    // console.log(signature);
     const url = `https://www.weights.com/api/data/models.searchAudioModels`;
 
     try {
@@ -359,64 +370,88 @@ export class DirectApiService implements IDirectApiService {
     }
   }
 
+  async uploadAudioFile(
+    fileData: Buffer,
+  )
+  : Promise<string> {
+    if (!this.page) {
+      throw new Error(
+        "Puppeteer page is not initialized. Call initPuppeteer() first.",
+      );
+    }
+    this.log(`File loaded: ${fileData.length} bytes`);
+    const uuid = randomUUID();
+    const {signedUrl, hostedUrl} = await this.page.evaluate(async (uuid) => {
+      const fileExtension = ".mp3";
+      const uploadUrlRequest = await this.getAudioUploadUrl(uuid + fileExtension);
+      const {signedUrl, hostedUrl} = uploadUrlRequest.result.data.json;
+      return { signedUrl, hostedUrl };
+    }, uuid);
+      
+    try {
+      // Upload file to signed URL
+      const uploadResponse = await fetch(signedUrl, {
+        method: "PUT",
+        body: fileData, // Use buffer directly, don't convert to string
+        headers: {
+          // "Content-Type": "audio/mpeg", // Standard MIME type for MP3
+          "Content-Length": fileData.length.toString(),
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error(`Upload failed with status: ${uploadResponse.status}`);
+      }
+
+      return hostedUrl;
+    } catch (error) {
+      console.error("Error uploading audio file:", error);
+      throw error;
+    }
+  }
+
   async createCoverStemOrTtsJob(
     prompt: string,
     audioModelId: string,
+    inputUrl?: string,
   ): Promise<string> {
     const body = {
       "json": {
           "rvcModelId": audioModelId,
-          "duetRvcModelId": null,
-          "inputUrl": null,
-          "ttsText": prompt,
+          "duetRvcModelId": undefined,
+          "inputUrl": inputUrl ? inputUrl : undefined,
+          "ttsText": !inputUrl ? prompt: "",
           "ttsBaseModel": "m-us-1",
           "origin": "WEB",
-          "inputType": "TTS",
-          "inputFileName": null,
+          "inputType": inputUrl? "RECORDING" : "TTS",
+          "inputFileName": inputUrl ? "Custom Recording" : undefined,
           "pitch": 0,
-          "instrumentalPitch": null,
-          "deEcho": null,
-          "isolateMainVocals": null,
-          "consonantProtection": null,
-          "volumeEnvelope": null,
+          "instrumentalPitch": undefined,
+          "deEcho": undefined,
+          "isolateMainVocals": undefined,
+          "consonantProtection": undefined,
+          "volumeEnvelope": undefined,
           "preStemmed": true,
-          "modelRegions": null
+          "modelRegions": undefined
       },
       "meta": {
           "values": {
-              "duetRvcModelId": [
-                  "undefined"
-              ],
-              "inputUrl": [
-                  "undefined"
-              ],
-              "inputFileName": [
-                  "undefined"
-              ],
-              "instrumentalPitch": [
-                  "undefined"
-              ],
-              "deEcho": [
-                  "undefined"
-              ],
-              "isolateMainVocals": [
-                  "undefined"
-              ],
-              "consonantProtection": [
-                  "undefined"
-              ],
-              "volumeEnvelope": [
-                  "undefined"
-              ],
-              "modelRegions": [
-                  "undefined"
-              ]
+
           }
       }
   }
 
-    const signatureBody = {"rvcModelId": audioModelId,"ttsText":prompt,"ttsBaseModel":"m-us-1","origin":"WEB","inputType":"TTS","pitch":0,"preStemmed":true};
+  for (const key in body.json) {
+    const keyValue = Object.prototype.hasOwnProperty.call(body.json, key);
+    if (keyValue === null || keyValue === undefined) {
+      if (!body.meta.values) {
+        body.meta.values = {};
+      }
+      (body.meta.values as { [key: string]: string[] })[key] = ["undefined"];
+    }
+  }
 
+    const signatureBody = JSON.parse(JSON.stringify(body.json));
     const signature = this.signatureCreator.createSignature(
       "creations.createCoverStemOrTtsJob",
       signatureBody,
@@ -457,8 +492,6 @@ export class DirectApiService implements IDirectApiService {
         }),
       });
       const url = `https://www.weights.com/api/data/creations.getPendingJobs?${params.toString()}`;
-      // console.log(url);
-      // console.log(signature);
       const response = await fetch(url, {
         method: "GET",
         headers: { ...this.headers, "x-payload-sig": signature },
@@ -474,6 +507,31 @@ export class DirectApiService implements IDirectApiService {
     }
   }
 
+  async getAudioUploadUrl(fileName: string): Promise<ApiResponse<{signedUrl: string; hostedUrl: string}>> {
+    const signature = this.signatureCreator.createSignature(
+      "webapp.getAudioUploadUrl",
+      fileName,
+    );
+    try {
+      const response = await fetch(
+        "https://www.weights.com/api/data/webapp.getAudioUploadUrl",
+        {
+          method: "POST",
+          headers: { ...this.headers, "x-payload-sig": signature },
+          body: JSON.stringify({ json: fileName }),
+        },
+      );
+
+      const data = await response.text();
+
+      return JSON.parse(data);
+    } catch (err) {
+      console.error("Get audio upload URL error:", err);
+      throw err;
+    }
+  }
+
+  // ===== PUPPETEER =====
   async generateImageJob(
     prompt: string,
     imageId: string,
@@ -595,7 +653,7 @@ export class DirectApiService implements IDirectApiService {
     return result;
   }
 
-  async searchAudioModels(query: string): Promise<unknown[]> {
+  async searchAudioModels(query: string): Promise<AudioModel[]> {
     if (!this.page) {
       throw new Error(
         "Puppeteer page is not initialized. Call initPuppeteer() first.",
@@ -620,9 +678,45 @@ export class DirectApiService implements IDirectApiService {
     return result;
   }
 
+  randomUUID(): string {
+    return randomUUID();
+  }
+
+  async readFile(path: string): Promise<Buffer> {
+    return fs.promises.readFile(path);
+  }
+
+  async uploadLargeFile(filePath: string, signedUrl: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const fileStream = fs.createReadStream(filePath);
+      
+      const options = new URL(signedUrl);
+      const req = https.request({
+        hostname: options.hostname,
+        path: options.pathname + options.search,
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'audio/mpeg',
+          'Content-Length': fs.statSync(filePath).size.toString()
+        }
+      }, (res) => {
+        if (res.statusCode === 200) {
+          resolve();
+        } else {
+          reject(new Error(`Upload failed: ${res.statusCode}`));
+        }
+      });
+      
+      fileStream.pipe(req);
+      
+      req.on('error', (err) => reject(err));
+    });
+  }
+
   async createAudioJob(
-    prompt: string,
     audioModelId: string,
+    prompt?: string,
+    inputUrl?: string,
   ): Promise<string> {
     if (!this.page) {
       throw new Error(
@@ -636,24 +730,21 @@ export class DirectApiService implements IDirectApiService {
       throw new Error("Audio model ID is required for Lora search.");
     }
 
-    const result = await this.page.evaluate(async (prompt, audioModelId) => {
-      const loraSearchResult = await this.createCoverStemOrTtsJob(prompt, audioModelId);
-
-      // console.log(loraSearchResult);
-
+    const result = await this.page.evaluate(async (prompt, audioModelId, inputUrl) => {
+      const loraSearchResult = await this.createCoverStemOrTtsJob(prompt, audioModelId, inputUrl);
+      this.log("Lora search result: ", loraSearchResult);
       let getImageJobByIdRequest = await this.getPendingJobs([loraSearchResult]);
       let getImageJobByIdResult = getImageJobByIdRequest.result.data.json;
       let result = getImageJobByIdResult.coverJobs[0];
       while (result.status !== "SUCCEEDED") {
-        console.log(result.status);
-        await this.sleep(1000);
+        await this.sleep(100);
         getImageJobByIdRequest = await this.getPendingJobs([loraSearchResult]);
         getImageJobByIdResult = getImageJobByIdRequest.result.data.json;
         result = getImageJobByIdResult.coverJobs[0];
       }
 
       return "https://tracks.weights.com/" + loraSearchResult + "/output_track.mp3";
-    }, prompt, audioModelId);
+    }, prompt, audioModelId, inputUrl);
     return result;
   }
 
