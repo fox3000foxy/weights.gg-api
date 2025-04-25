@@ -730,6 +730,7 @@ export class DirectApiService implements IDirectApiService {
     const result = await this.page.evaluate(async (prompt, audioModelId, inputUrl, pitch) => {
       const loraSearchResult = await this.createCoverStemOrTtsJob(audioModelId, prompt, inputUrl, pitch);
       this.log("Lora search result: ", loraSearchResult);
+      await this.sleep(1000);
       let getImageJobByIdRequest = await this.getPendingJobs([loraSearchResult]);
       let getImageJobByIdResult = getImageJobByIdRequest.result.data.json;
       let result = getImageJobByIdResult.coverJobs[0];
