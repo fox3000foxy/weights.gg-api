@@ -64,6 +64,14 @@ export class SignatureCreator {
   }
 }
 
+export interface ApiResponse<T> {
+  result: {
+    data: {
+      json: T;
+    };
+  };
+}
+
 @injectable()
 export class DirectApiService implements IDirectApiService {
   private signatureCreator: SignatureCreator;
@@ -125,10 +133,14 @@ export class DirectApiService implements IDirectApiService {
       this.getModelSuggestions.bind(this),
     );
     await this.page.exposeFunction("getUsage", this.getUsage.bind(this));
+    await this.page.exposeFunction("getAudioModels", this.getAudioModels.bind(this));
+    await this.page.exposeFunction("createCoverStemOrTtsJob", this.createCoverStemOrTtsJob.bind(this));
+    await this.page.exposeFunction("getPendingJobs", this.getPendingJobs.bind(this));
     await this.page.exposeFunction(
       "generateImageJob",
       this.generateImageJob.bind(this),
     );
+    await this.page.exposeFunction("sleep", this.sleep.bind(this));
     return this.page;
   }
 
@@ -314,6 +326,152 @@ export class DirectApiService implements IDirectApiService {
     }
   }
 
+  async getAudioModels(
+    search: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ): Promise<ApiResponse<any[]>> {
+    const body = {
+      json: search
+    };
+
+    const signature = this.signatureCreator.createSignature(
+      "models.searchAudioModels",
+      search,
+    );
+    // console.log(signature);
+    const url = `https://www.weights.com/api/data/models.searchAudioModels`;
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { ...this.headers, "x-payload-sig": signature },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.text();
+
+      return JSON.parse(data);
+    } catch (err) {
+      console.error("Get model suggestions error:", err);
+      throw err;
+    }
+  }
+
+  async createCoverStemOrTtsJob(
+    prompt: string,
+    audioModelId: string,
+  ): Promise<string> {
+    const body = {
+      "json": {
+          "rvcModelId": audioModelId,
+          "duetRvcModelId": null,
+          "inputUrl": null,
+          "ttsText": prompt,
+          "ttsBaseModel": "m-us-1",
+          "origin": "WEB",
+          "inputType": "TTS",
+          "inputFileName": null,
+          "pitch": 0,
+          "instrumentalPitch": null,
+          "deEcho": null,
+          "isolateMainVocals": null,
+          "consonantProtection": null,
+          "volumeEnvelope": null,
+          "preStemmed": true,
+          "modelRegions": null
+      },
+      "meta": {
+          "values": {
+              "duetRvcModelId": [
+                  "undefined"
+              ],
+              "inputUrl": [
+                  "undefined"
+              ],
+              "inputFileName": [
+                  "undefined"
+              ],
+              "instrumentalPitch": [
+                  "undefined"
+              ],
+              "deEcho": [
+                  "undefined"
+              ],
+              "isolateMainVocals": [
+                  "undefined"
+              ],
+              "consonantProtection": [
+                  "undefined"
+              ],
+              "volumeEnvelope": [
+                  "undefined"
+              ],
+              "modelRegions": [
+                  "undefined"
+              ]
+          }
+      }
+  }
+
+    const signatureBody = {"rvcModelId": audioModelId,"ttsText":prompt,"ttsBaseModel":"m-us-1","origin":"WEB","inputType":"TTS","pitch":0,"preStemmed":true};
+
+    const signature = this.signatureCreator.createSignature(
+      "creations.createCoverStemOrTtsJob",
+      signatureBody,
+    );
+
+    try {
+      const response = await fetch(
+        "https://www.weights.com/api/data/creations.createCoverStemOrTtsJob",
+        {
+          method: "POST",
+          headers: { ...this.headers, "x-payload-sig": signature },
+          body: JSON.stringify(body),
+        },
+      );
+
+      const data = await response.text();
+
+      return JSON.parse(data).result.data.json.id;
+    } catch (err) {
+      console.error("Create cover stem or TTS job error:", err);
+      throw err;
+    }
+  }
+
+  async getPendingJobs(
+    coverJobIds: string[],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ): Promise<any> {
+    const signature = this.signatureCreator.createSignature(
+      "creations.getPendingJobs",
+      { coverJobIds, videoJobIds: [], trainingJobIds: [] },
+    );
+
+    try {
+      const params = new URLSearchParams({
+        input: JSON.stringify({
+          json: { coverJobIds, videoJobIds: [], trainingJobIds: [] },
+        }),
+      });
+      const url = `https://www.weights.com/api/data/creations.getPendingJobs?${params.toString()}`;
+      // console.log(url);
+      // console.log(signature);
+      const response = await fetch(url, {
+        method: "GET",
+        headers: { ...this.headers, "x-payload-sig": signature },
+      });
+
+
+      const data = await response.text();
+
+      return JSON.parse(data);
+    } catch (err) {
+      console.error("Get pending jobs error:", err);
+      throw err;
+    }
+  }
+
   async generateImageJob(
     prompt: string,
     imageId: string,
@@ -432,6 +590,68 @@ export class DirectApiService implements IDirectApiService {
         };
       });
     }, query);
+    return result;
+  }
+
+  async searchAudioModels(query: string): Promise<unknown[]> {
+    if (!this.page) {
+      throw new Error(
+        "Puppeteer page is not initialized. Call initPuppeteer() first.",
+      );
+    }
+    if (!query) {
+      throw new Error("Query is required for Lora search.");
+    }
+
+    const result = await this.page.evaluate(async (query) => {
+      const loraSearchRequest = await this.getAudioModels(query);
+      const loraSearchResult = loraSearchRequest.result.data.json;
+      return loraSearchResult.map((item) => {
+        return {
+          id: item.id,
+          title: item.title,
+          content: item.content,
+          image: item.image,
+        };
+      });
+    }, query);
+    return result;
+  }
+
+  async createAudioJob(
+    prompt: string,
+    audioModelId: string,
+  ): Promise<string> {
+    if (!this.page) {
+      throw new Error(
+        "Puppeteer page is not initialized. Call initPuppeteer() first.",
+      );
+    }
+    if (!prompt) {
+      throw new Error("Prompt is required for Lora search.");
+    }
+    if (!audioModelId) {
+      throw new Error("Audio model ID is required for Lora search.");
+    }
+
+    const result = await this.page.evaluate(async (prompt, audioModelId) => {
+      const loraSearchResult = await this.createCoverStemOrTtsJob(prompt, audioModelId);
+
+      // console.log(loraSearchResult);
+
+      let getImageJobByIdRequest = await this.getPendingJobs([loraSearchResult]);
+      let getImageJobByIdResult = getImageJobByIdRequest.result.data.json;
+      let result = getImageJobByIdResult.coverJobs[0];
+      while (result.status !== "SUCCEEDED") {
+        console.log(result.status);
+        await this.sleep(1000);
+        getImageJobByIdRequest = await this.getPendingJobs([loraSearchResult]);
+        getImageJobByIdResult = getImageJobByIdRequest.result.data.json;
+        result = getImageJobByIdResult.coverJobs[0];
+      }
+
+      return "https://tracks.weights.com/" + loraSearchResult + "/output_track.mp3";
+    }, prompt, audioModelId);
     return result;
   }
 
