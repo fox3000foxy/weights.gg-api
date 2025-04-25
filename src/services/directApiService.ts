@@ -411,8 +411,8 @@ export class DirectApiService implements IDirectApiService {
   }
 
   async createCoverStemOrTtsJob(
-    prompt: string,
     audioModelId: string,
+    prompt?: string,
     inputUrl?: string,
   ): Promise<string> {
     const body = {
@@ -723,15 +723,11 @@ export class DirectApiService implements IDirectApiService {
         "Puppeteer page is not initialized. Call initPuppeteer() first.",
       );
     }
-    if (!prompt) {
-      throw new Error("Prompt is required for Lora search.");
+    if (!prompt && !audioModelId) {
+      throw new Error("Prompt or audioModelId is required for Lora search.");
     }
-    if (!audioModelId) {
-      throw new Error("Audio model ID is required for Lora search.");
-    }
-
     const result = await this.page.evaluate(async (prompt, audioModelId, inputUrl) => {
-      const loraSearchResult = await this.createCoverStemOrTtsJob(prompt, audioModelId, inputUrl);
+      const loraSearchResult = await this.createCoverStemOrTtsJob(audioModelId, prompt, inputUrl);
       this.log("Lora search result: ", loraSearchResult);
       let getImageJobByIdRequest = await this.getPendingJobs([loraSearchResult]);
       let getImageJobByIdResult = getImageJobByIdRequest.result.data.json;
