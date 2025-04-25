@@ -557,7 +557,7 @@ export class DirectApiService implements IDirectApiService {
       let oldB64 = null;
 
       while (getImageJobByIdResult.status !== "SUCCEEDED") {
-        await this.sleep(100);
+        await this.sleep(1000);
 
         if (getImageJobByIdResult.status !== oldStatus) {
           this.statusService?.updateImageStatus(imageId, "STARTING");
