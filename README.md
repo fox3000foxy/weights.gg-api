@@ -150,7 +150,9 @@ Generated images expire after 10 minutes. Download promptly!
     - `/voice`
         - **Request Body**:
             - `voiceModelName` (required): The name of the voice model to use.
-            - `text` (optional): The text to be converted to speech. If not provided, an example audio file will be used.
+            - `text` (optionally required): The text to be converted to speech. If not provided, an example audio file will be used.
+            - `audioUrl` (optionally required): The URL of the MP3 files that will be the converted audio source
+            ⚠️ `text` OR `audioUrl` must be provided, but not both
         - **Response**:
             - `result`: JSON object containing the result of the audio generation job.
 
