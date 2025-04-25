@@ -4,7 +4,6 @@ import { apiKeyCheck } from "../middlewares/apiKeyCheck";
 import { inject } from "inversify";
 import { AudioModel, TYPES } from "../types";
 import DirectApiService from "../services/directApiService";
-import fs from "fs";
 
 @controller("/voice")
 export class VoiceController implements interfaces.Controller {
@@ -14,7 +13,15 @@ export class VoiceController implements interfaces.Controller {
     const { voiceModelName } = req.body;
 
     const text = req.body.text as string || undefined;
+    const audioUrl = req.body.audioUrl as string || undefined;
 
+    if (!text && !audioUrl) {
+      res.status(400).send({
+        error: "req.body.text or req.body.audioUrl is required.",
+      });
+      return;
+    }
+    
     const audioModels: AudioModel[] = await this.directApiService.searchAudioModels(voiceModelName as string);
     if (!audioModels || audioModels.length === 0) {
       res.status(400).send({
@@ -22,9 +29,10 @@ export class VoiceController implements interfaces.Controller {
       });
       return;
     }
-    if(!text) {
-        const fileData = await fs.promises.readFile("./exemple.mp3");
-        const inputUrl = await this.directApiService.uploadAudioFile(fileData);    
+    if(audioUrl) {
+        // const fileData = await fs.promises.readFile("./exemple.mp3");
+        const fileData = await fetch(audioUrl).then(res => res.arrayBuffer());
+        const inputUrl = await this.directApiService.uploadAudioFile(Buffer.from(fileData));    
         const result = await this.directApiService.createAudioJob(audioModels[0].id, undefined,  inputUrl);
         res.json({
             result,
@@ -38,20 +46,3 @@ export class VoiceController implements interfaces.Controller {
     }
   }
 }
-/*
-    Exemple usage using fetch
-
-    const response = await fetch("http://localhost:3000/voice", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": "84a516841ba77a5b4648de2cd0dfcb30ea46dbb4",
-      },
-      body: JSON.stringify({
-        voiceModelName: "voice-model-name",
-        text: "Hello world",
-      }),
-    });
-    const data = await response.json();
-    console.log(data);
-*/
