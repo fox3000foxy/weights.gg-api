@@ -145,6 +145,32 @@ Generated images expire after 10 minutes. Download promptly!
     }
     ```
 
+    ### 🎤 Voice Generation
+
+    - `/voice`
+        - **Request Body**:
+            - `voiceModelName` (required): The name of the voice model to use.
+            - `text` (optional): The text to be converted to speech. If not provided, an example audio file will be used.
+        - **Response**:
+            - `result`: JSON object containing the result of the audio generation job.
+
+        - **Example Usage (fetch)**:
+        ```javascript
+        const response = await fetch("http://localhost:3000/voice", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-api-key": "YOUR_API_KEY",
+            },
+            body: JSON.stringify({
+                voiceModelName: "voice-model-name",
+                text: "Hello world",
+            }),
+        });
+        const {result} = await response.json();
+        console.log(result);
+        ```
+
 ## 📖 Libraries
 - [TS](https://github.com/fox3000foxy/weights.gg-api/blob/main/src/libs/weights-api.ts), [JS](https://github.com/fox3000foxy/weights.gg-api/blob/main/dist/libs/weights-api.js) and [Python](https://github.com/fox3000foxy/weights.gg-api/blob/main/weights-api.py) libraries are now availiable!
 

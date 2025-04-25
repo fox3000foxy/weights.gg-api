@@ -23,6 +23,7 @@ import "./controllers/statusController";
 import "./controllers/generateController";
 import "./controllers/quotaController";
 import "./controllers/searchController";
+import "./controllers/voiceController";
 
 // Initialize Inversify container
 export const container = new Container();
