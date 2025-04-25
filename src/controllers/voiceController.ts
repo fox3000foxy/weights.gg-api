@@ -14,7 +14,7 @@ export class VoiceController implements interfaces.Controller {
 
     const text = req.body.text as string || undefined;
     const audioUrl = req.body.audioUrl as string || undefined;
-    const pitch = req.body.pitch as number || undefined;
+    const pitch = req.body.pitch as string || undefined;
 
     console.log("req.body", req.body);
 

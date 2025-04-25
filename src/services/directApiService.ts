@@ -457,6 +457,7 @@ export class DirectApiService implements IDirectApiService {
       "creations.createCoverStemOrTtsJob",
       signatureBody,
     );
+    console.log(signatureBody)
 
     try {
       const response = await fetch(
@@ -469,7 +470,7 @@ export class DirectApiService implements IDirectApiService {
       );
 
       const data = await response.text();
-
+      console.log(data)
       return JSON.parse(data).result.data.json.id;
     } catch (err) {
       console.error("Create cover stem or TTS job error:", err);
@@ -718,7 +719,7 @@ export class DirectApiService implements IDirectApiService {
     audioModelId: string,
     prompt?: string,
     inputUrl?: string,
-    pitch: number = 0
+    pitch: string = "0"
   ): Promise<string> {
     if (!this.page) {
       throw new Error(
@@ -742,7 +743,7 @@ export class DirectApiService implements IDirectApiService {
       }
 
       return "https://tracks.weights.com/" + loraSearchResult + "/output_track.mp3";
-    }, prompt, audioModelId, inputUrl, pitch);
+    }, prompt, audioModelId, inputUrl, parseInt(pitch));
     return result;
   }
 
