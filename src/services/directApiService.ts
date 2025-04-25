@@ -442,6 +442,7 @@ export class DirectApiService implements IDirectApiService {
       "creations.createCoverStemOrTtsJob",
       signatureBody,
     );
+    console.log(signatureBody)
 
     try {
       const response = await fetch(
