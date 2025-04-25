@@ -204,6 +204,44 @@ export class WeightsApi {
   };
 
   /**
+   * Generates audio from text.
+   * @param voiceModelId - The ID of the voice model to use.
+   * @param text - The text to convert to speech.
+   * @returns Promise with generation results.
+   */
+  generateFromTTS = async (
+    voiceModelName: string,
+    text: string,
+  ): Promise<{result: string}> => {
+    return this.callWithHealthCheck(() =>
+      this.apiCall(
+        "/voice",
+        HttpMethod.POST,
+        { voiceModelName, text },
+      ).then((response) => response.json()),
+    );
+  };
+
+  /**
+   * Generates audio from an audio URL.
+   * @param voiceModelId - The ID of the voice model to use.
+   * @param audioUrl - The URL of the audio file to use as input.
+   * @returns Promise with generation results.
+   */
+  generateFromAudioURL = async (
+    voiceModelName: string,
+    audioUrl: string,
+  ): Promise<{result: string}> => {
+    return this.callWithHealthCheck(() =>
+      this.apiCall(
+        "/voice",
+        HttpMethod.POST,
+        { voiceModelName, audioUrl },
+      ).then((response) => response.json()),
+    );
+  };
+
+  /**
    * Generates a progressive image based on parameters.
    * @param params - Object containing query and optional loraName.
    * @param callback - Function to call with status updates.
