@@ -457,7 +457,6 @@ export class DirectApiService implements IDirectApiService {
       "creations.createCoverStemOrTtsJob",
       signatureBody,
     );
-    console.log(signatureBody)
 
     try {
       const response = await fetch(
@@ -470,7 +469,6 @@ export class DirectApiService implements IDirectApiService {
       );
 
       const data = await response.text();
-      console.log(data)
       return JSON.parse(data).result.data.json.id;
     } catch (err) {
       console.error("Create cover stem or TTS job error:", err);
