@@ -22,6 +22,10 @@ async function main() {
     TYPES.DirectApiService,
   );
   await directApiService.initPuppeteer();
+  console.log("Puppeteer initialized.");
+
+  const audioModels = await directApiService.createAudioJob("Bienvenue dans le centre de recherche", "clm72nzmc0d25cctcbk77n6i0");
+  console.log("Audio Models:", audioModels);
 
   // Create and start the server
   const app = createApp();
