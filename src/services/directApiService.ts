@@ -58,6 +58,7 @@ export interface IDirectApiService {
     prompt?: string,
     inputUrl?: string,
     pitch?: number,
+    male?: boolean,
   ): Promise<string>;
   getAudioUploadUrl(fileName: string): Promise<ApiResponse<{ signedUrl: string; hostedUrl: string }>>;
   randomUUID(): string;
@@ -68,6 +69,7 @@ export interface IDirectApiService {
     prompt?: string,
     inputUrl?: string,
     pitch?: string,
+    male?: string,
   ): Promise<string>;
   searchAudioModels(query: string): Promise<AudioModel[]>;
   log(...args: unknown[]): void;
@@ -421,6 +423,7 @@ export class DirectApiService implements IDirectApiService {
     prompt?: string,
     inputUrl?: string,
     pitch: number = 0,
+    male: boolean = true,
   ): Promise<string> {
     const body = {
       "json": {
@@ -428,7 +431,7 @@ export class DirectApiService implements IDirectApiService {
           "duetRvcModelId": undefined,
           "inputUrl": inputUrl ? inputUrl : undefined,
           "ttsText": !inputUrl ? prompt: "",
-          "ttsBaseModel": "m-us-1",
+          "ttsBaseModel": male ? "m-us-1" : "f-us-1",
           "origin": "WEB",
           "inputType": inputUrl? "RECORDING" : "TTS",
           "inputFileName": inputUrl ? "Custom Recording" : undefined,
@@ -687,7 +690,8 @@ export class DirectApiService implements IDirectApiService {
     audioModelId: string,
     prompt?: string,
     inputUrl?: string,
-    pitch: string = "0"
+    pitch: string = "0",
+    male: string = "true"
   ): Promise<string> {
     if (!this.page) {
       throw new Error(
@@ -697,8 +701,8 @@ export class DirectApiService implements IDirectApiService {
     if (!prompt && !audioModelId) {
       throw new Error("Prompt or audioModelId is required for Lora search.");
     }
-    const result = await this.page.evaluate(async (prompt, audioModelId, inputUrl, pitch) => {
-      const loraSearchResult = await this.createCoverStemOrTtsJob(audioModelId, prompt, inputUrl, pitch);
+    const result = await this.page.evaluate(async (prompt, audioModelId, inputUrl, pitch, male) => {
+      const loraSearchResult = await this.createCoverStemOrTtsJob(audioModelId, prompt, inputUrl, pitch, male);
       await this.sleep(1000);
 
       let convertedUrl = await fetch("https://tracks.weights.com/" + loraSearchResult + "/output_track.mp3").then(res=>res.text());
@@ -711,7 +715,7 @@ export class DirectApiService implements IDirectApiService {
       } 
 
       return "https://tracks.weights.com/" + loraSearchResult + "/output_track.mp3";
-    }, prompt, audioModelId, inputUrl, parseInt(pitch));
+    }, prompt, audioModelId, inputUrl, parseInt(pitch), JSON.parse(male));
     return result;
   }
 

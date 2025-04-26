@@ -14,9 +14,8 @@ export class VoiceController implements interfaces.Controller {
 
     const text = req.body.text as string || undefined;
     const audioUrl = req.body.audioUrl as string || undefined;
-    const pitch = req.body.pitch as string || undefined;
-
-    console.log("req.body", req.body);
+    const pitch = req.body.pitch as string || "0";
+    const male = req.body.male as string || "true";
 
     if (!text && !audioUrl) {
       res.status(400).send({
@@ -33,17 +32,16 @@ export class VoiceController implements interfaces.Controller {
       return;
     }
     if(audioUrl) {
-        // const fileData = await fs.promises.readFile("./exemple.mp3");
         const fileData = await fetch(audioUrl).then(res => res.arrayBuffer());
         console.log("fileData", fileData);
         const inputUrl = await this.directApiService.uploadAudioFile(Buffer.from(fileData));    
-        const result = await this.directApiService.createAudioJob(audioModels[0].id, undefined,  inputUrl, pitch);
+        const result = await this.directApiService.createAudioJob(audioModels[0].id, undefined,  inputUrl, pitch, male);
         res.json({
             result,
         });    
     }
     else {
-        const result = await this.directApiService.createAudioJob(audioModels[0].id, text, undefined, pitch);
+        const result = await this.directApiService.createAudioJob(audioModels[0].id, text, undefined, pitch, male);
         res.json({
             result,
         });

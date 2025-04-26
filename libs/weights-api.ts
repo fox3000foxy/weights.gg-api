@@ -192,12 +192,13 @@ export class WeightsApi {
     voiceModelName: string,
     text: string,
     pitch: number = 0,
+    male: boolean = true,
   ): Promise<{result: string}> => {
     return this.callWithHealthCheck(() =>
       this.apiCall(
         "/voice",
         HttpMethod.POST,
-        { voiceModelName, text, pitch: pitch.toString() },
+        { voiceModelName, text, pitch: pitch.toString(), male: male.toString() },
       ).then((response) => response.json()),
     );
   };
