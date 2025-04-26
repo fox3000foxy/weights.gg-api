@@ -151,8 +151,11 @@ Generated images expire after 10 minutes. Download promptly!
         - **Request Body**:
             - `voiceModelName` (required): The name of the voice model to use.
             - `text` (optionally required): The text to be converted to speech. If not provided, an example audio file will be used.
-            - `audioUrl` (optionally required): The URL of the MP3 files that will be the converted audio source
-            ⚠️ `text` OR `audioUrl` must be provided, but not both
+            - `audioUrl` (optionally required): The URL of the MP3 files that will be the converted audio source.
+            ⚠️ `text` OR `audioUrl` must be provided, but not both.
+            
+            - `pitch` (optional): The pitch of the converted voice, must be the string version of a number between -12 and 12.
+            - `male` (optional): The default voice tone represented by a string version of a boolean. "true" is male, "false" is female. 
         - **Response**:
             - `result`: JSON object containing the result of the audio generation job.
 

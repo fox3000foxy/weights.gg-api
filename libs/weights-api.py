@@ -158,16 +158,16 @@ class WeightsApi:
                 raise Exception(f"Image generation failed: {error}")
         return status_response
 
-    async def generate_from_tts(self, voice_model_name: str, text: str, pitch: float = 0) -> Dict:
+    async def generate_from_tts(self, voice_model_name: str, text: str, pitch: float = 0, male: bool = False) -> Dict:
         """
         Generates audio from text.
         """
-        params = {'voiceModelName': voice_model_name, 'text': text, 'pitch': str(pitch)}
+        params = {'voiceModelName': voice_model_name, 'text': text, 'pitch': str(pitch), 'male': str(male).lower()}
         async def call():
             response = await self.api_call('/voice', method='POST', body=params)
             return await response.json()
         return await self.call_with_health_check(call)
-
+    
     async def generate_from_audio_url(self, voice_model_name: str, audio_url: str, pitch: float = 0) -> Dict:
         """
         Generates audio from an audio URL.
