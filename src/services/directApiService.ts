@@ -51,18 +51,37 @@ export interface IDirectApiService {
   searchLoras(query: string): Promise<Lora[]>;
   getQuotas(): Promise<unknown>;
   sleep(ms: number): Promise<void>;
+  getAudioModels(search: string): Promise<ApiResponse<unknown[]>>;
+  uploadAudioFile(fileData: Buffer): Promise<string>;
+  createCoverStemOrTtsJob(
+    audioModelId: string,
+    prompt?: string,
+    inputUrl?: string,
+    pitch?: number,
+  ): Promise<string>;
+  getAudioUploadUrl(fileName: string): Promise<ApiResponse<{ signedUrl: string; hostedUrl: string }>>;
+  randomUUID(): string;
+  readFile(path: string): Promise<Buffer>;
+  uploadLargeFile(filePath: string, signedUrl: string): Promise<void>;
+  createAudioJob(
+    audioModelId: string,
+    prompt?: string,
+    inputUrl?: string,
+    pitch?: string,
+  ): Promise<string>;
+  searchAudioModels(query: string): Promise<AudioModel[]>;
+  log(...args: unknown[]): void;
 }
+
 
 export class SignatureCreator {
   private secret: string;
-  // private updateStatus: Function | null = null;
 
   constructor(secret: string) {
     if (!secret) {
       throw Error("Secret is required for payload signing");
     }
     this.secret = secret;
-    // this.updateStatus = this.StatusService
   }
 
   createSignature(methodName: string, payload: unknown): string {
@@ -120,37 +139,27 @@ export class DirectApiService implements IDirectApiService {
       ignoreAllFlags: false,
     });
     this.page = page;
-    await this.page.setCacheEnabled(false); // Disable cache
-    await this.page.goto("https://weights.gg/create", {waitUntil: "networkidle0"});
-    await this.page.exposeFunction(
-      "llmStringForSafety",
-      this.checkPromptSafety.bind(this),
-    );
-    await this.page.exposeFunction(
+    await this.page.setCacheEnabled(false);
+    await this.page.goto("https://weights.gg/create", { waitUntil: "networkidle0" });
+    const methodsToExpose: (keyof DirectApiService)[] = [
+      "checkPromptSafety",
       "createImageJob",
-      this.createImageJob.bind(this),
-    );
-    await this.page.exposeFunction(
       "getImageJobById",
-      this.getImageJobById.bind(this),
-    );
-    await this.page.exposeFunction(
       "getModelSuggestions",
-      this.getModelSuggestions.bind(this),
-    );
-    await this.page.exposeFunction("getUsage", this.getUsage.bind(this));
-    await this.page.exposeFunction("getAudioModels", this.getAudioModels.bind(this));
-    await this.page.exposeFunction("createCoverStemOrTtsJob", this.createCoverStemOrTtsJob.bind(this));
-    await this.page.exposeFunction("getPendingJobs", this.getPendingJobs.bind(this));
-    await this.page.exposeFunction(
+      "getUsage",
+      "getAudioModels",
+      "createCoverStemOrTtsJob",
       "generateImageJob",
-      this.generateImageJob.bind(this),
-    );
-    await this.page.exposeFunction("sleep", this.sleep.bind(this));
-    await this.page.exposeFunction("randomUUID", this.randomUUID.bind(this));
-    await this.page.exposeFunction("readFile", this.readFile.bind(this));
-    await this.page.exposeFunction("log", this.log.bind(this));
-    await this.page.exposeFunction("getAudioUploadUrl", this.getAudioUploadUrl.bind(this));
+      "sleep",
+      "randomUUID",
+      "readFile",
+      "log",
+      "getAudioUploadUrl",
+    ];
+
+    for (const method of methodsToExpose) {
+      await this.page.exposeFunction(method, this[method].bind(this));
+    }
     return this.page;
   }
 
@@ -342,8 +351,7 @@ export class DirectApiService implements IDirectApiService {
 
   async getAudioModels(
     search: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ): Promise<ApiResponse<any[]>> {
+  ): Promise<ApiResponse<AudioModel[]>> {
     const body = {
       json: search
     };
@@ -389,12 +397,10 @@ export class DirectApiService implements IDirectApiService {
     }, uuid);
       
     try {
-      // Upload file to signed URL
       const uploadResponse = await fetch(signedUrl, {
         method: "PUT",
-        body: fileData, // Use buffer directly, don't convert to string
+        body: fileData,
         headers: {
-          // "Content-Type": "audio/mpeg", // Standard MIME type for MP3
           "Content-Length": fileData.length.toString(),
         },
       });
@@ -476,37 +482,6 @@ export class DirectApiService implements IDirectApiService {
     }
   }
 
-  async getPendingJobs(
-    coverJobIds: string[],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ): Promise<any> {
-    const signature = this.signatureCreator.createSignature(
-      "creations.getPendingJobs",
-      { coverJobIds, videoJobIds: [], trainingJobIds: [] },
-    );
-
-    try {
-      const params = new URLSearchParams({
-        input: JSON.stringify({
-          json: { coverJobIds, videoJobIds: [], trainingJobIds: [] },
-        }),
-      });
-      const url = `https://www.weights.com/api/data/creations.getPendingJobs?${params.toString()}`;
-      const response = await fetch(url, {
-        method: "GET",
-        headers: { ...this.headers, "x-payload-sig": signature },
-      });
-
-      const data = await response.text();
-      // console.log("getPendingJobs data: ", data);
-
-      return JSON.parse(data);
-    } catch (err) {
-      console.error("Get pending jobs error:", err);
-      throw err;
-    }
-  }
-
   async getAudioUploadUrl(fileName: string): Promise<ApiResponse<{signedUrl: string; hostedUrl: string}>> {
     const signature = this.signatureCreator.createSignature(
       "webapp.getAudioUploadUrl",
@@ -531,7 +506,6 @@ export class DirectApiService implements IDirectApiService {
     }
   }
 
-  // ===== PUPPETEER =====
   async generateImageJob(
     prompt: string,
     imageId: string,
@@ -588,10 +562,6 @@ export class DirectApiService implements IDirectApiService {
       this.statusService?.updateImageStatus(imageId, "COMPLETED");
       return getImageJobByIdResult.outputUrl;
     } else {
-      console.error(
-        "llmStringForSafety error: ",
-        "String is unsafe, please check your input.",
-      );
       this.statusService?.updateImageStatus(
         imageId,
         "FAILED",
@@ -666,7 +636,7 @@ export class DirectApiService implements IDirectApiService {
     const result = await this.page.evaluate(async (query) => {
       const loraSearchRequest = await this.getAudioModels(query);
       const loraSearchResult = loraSearchRequest.result.data.json;
-      return loraSearchResult.map((item) => {
+      return loraSearchResult.map((item: AudioModel) => {
         return {
           id: item.id,
           title: item.title,
@@ -729,21 +699,8 @@ export class DirectApiService implements IDirectApiService {
     }
     const result = await this.page.evaluate(async (prompt, audioModelId, inputUrl, pitch) => {
       const loraSearchResult = await this.createCoverStemOrTtsJob(audioModelId, prompt, inputUrl, pitch);
-      this.log("Lora search result: ", loraSearchResult);
       await this.sleep(1000);
 
-      // THIS BELOW CODE IS NOT WORKING, NEEDS TO BE FIXED, CLOUDFARE ISSUES
-      // let getImageJobByIdRequest = await this.getPendingJobs([loraSearchResult]);
-      // let getImageJobByIdResult = getImageJobByIdRequest.result.data.json;
-      // let result = getImageJobByIdResult.coverJobs[0];
-      // while (result.status !== "SUCCEEDED") {
-      //   await this.sleep(1000);
-      //   getImageJobByIdRequest = await this.getPendingJobs([loraSearchResult]);
-      //   getImageJobByIdResult = getImageJobByIdRequest.result.data.json;
-      //   result = getImageJobByIdResult.coverJobs[0];
-      // }
-
-      // Bypassing the above issue workaround
       let convertedUrl = await fetch("https://tracks.weights.com/" + loraSearchResult + "/output_track.mp3").then(res=>res.text());
       while (convertedUrl.indexOf("Error 404")) {
         await this.sleep(1000);
