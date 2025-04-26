@@ -485,7 +485,6 @@ export class DirectApiService implements IDirectApiService {
     }
   }
 
-  // ===== PUPPETEER =====
   async generateImageJob(
     prompt: string,
     imageId: string,
