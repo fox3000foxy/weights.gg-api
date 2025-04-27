@@ -4,6 +4,7 @@ import { InversifyExpressServer } from "inversify-express-utils";
 import * as express from "express";
 import * as path from "path";
 import cors from "cors";
+import bodyParser from "body-parser";
 
 import { TYPES } from "./types";
 import { Config, weightsConfig } from "./config";
@@ -52,6 +53,7 @@ const configureServer = (server: InversifyExpressServer) => {
   server.setConfig((app) => {
     app.use(express.json());
     app.use(cors());
+    app.use(bodyParser());
     app.use(express.urlencoded({ extended: true }));
     app.use(express.static(path.join(__dirname, weightsConfig.IMAGE_DIR)));
   });
