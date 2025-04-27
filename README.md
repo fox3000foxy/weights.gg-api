@@ -161,7 +161,7 @@ Generated images expire after 10 minutes. Download promptly!
         ```
 
 ## 📖 Libraries
-- [TS](https://github.com/fox3000foxy/weights.gg-api/blob/main/src/libs/weights-api.ts), [JS](https://github.com/fox3000foxy/weights.gg-api/blob/main/dist/libs/weights-api.js) and [Python](https://github.com/fox3000foxy/weights.gg-api/blob/main/weights-api.py) libraries are now availiable!
+- [TS](https://github.com/fox3000foxy/weights.gg-api/blob/main/src/libs/weights-api.ts), [JS](https://github.com/fox3000foxy/weights.gg-api/blob/main/src/libs/weights-api.js), and [Python](https://github.com/fox3000foxy/weights.gg-api/blob/main/weights-api.py) libraries are availiable too. Please use them to facilitate you.
 
 > ⚠️ DISCLAIMER – UNOFFICIAL API
 
