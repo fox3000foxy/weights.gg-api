@@ -210,6 +210,14 @@ export interface SafetyCheckResult {
   hasSelfHarm: boolean;
 }
 
+export interface ApiResponse<T> {
+  result: {
+    data: {
+      json: T;
+    };
+  };
+}
+
 // Processor Functions
 export type ProcessorFunction = (job: Job, page: Page) => Promise<void>;
 export type SearchProcessorFunction = (job: LoraSearchJob, page: Page) => Promise<void>;

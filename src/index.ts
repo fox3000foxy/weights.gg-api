@@ -2,7 +2,7 @@
 import "reflect-metadata";
 import * as fs from "fs";
 import * as path from "path";
-import { container, createApp } from "./inversify.config";
+import { container, createApp, registerServices } from "./inversify.config";
 import { weightsConfig } from "./config";
 import { TYPES } from "./types";
 import { DirectApiService } from "./services/directApiService";
@@ -20,6 +20,8 @@ async function main() {
   try {
     const imagesDir = path.join(__dirname, weightsConfig.IMAGE_DIR);
     ensureDirectoryExists(imagesDir);
+
+    registerServices();
 
     // Initialize Puppeteer in DirectApiService
     const directApiService = container.get<DirectApiService>(

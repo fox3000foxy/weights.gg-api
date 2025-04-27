@@ -26,9 +26,7 @@ import "./controllers/searchController";
 
 // Initialize Inversify container
 export const container = new Container();
-
-// Register services
-const registerServices = () => {
+export const registerServices = () => {
   container.bind<Config>(TYPES.Config).toConstantValue(weightsConfig);
   container
     .bind<IStatusService>(TYPES.StatusService)
@@ -60,7 +58,6 @@ const configureServer = (server: InversifyExpressServer) => {
 
 // Create and export the app
 export const createApp = () => {
-  registerServices();
   const server = new InversifyExpressServer(container);
   configureServer(server);
   return server.build();
