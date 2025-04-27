@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import * as CryptoJS from "crypto-js";
 import { connect } from "puppeteer-real-browser";
 import type { Page } from "rebrowser-puppeteer-core";
@@ -11,9 +12,17 @@ import {
   ImageJobResult,
   ModelSuggestion,
   TYPES,
+  AudioModel,
+  CreateAudioJobBody,
 } from "../types";
 import { Config } from "../config";
+import { randomUUID } from "crypto";
+import fs from 'fs';
+import https from 'https';
 
+/**
+ * Interface for API responses
+ */
 export interface ApiResponse<T> {
   result: {
     data: {
@@ -22,6 +31,9 @@ export interface ApiResponse<T> {
   };
 }
 
+/**
+ * Interface for DirectApiService
+ */
 export interface IDirectApiService {
   initPuppeteer(): Promise<Page>;
   sleep(ms: number): Promise<void>;
@@ -29,38 +41,46 @@ export interface IDirectApiService {
   checkPromptSafety(prompt: string): Promise<ApiResponse<SafetyCheckResult>>;
   createImageJob(prompt: string, loraId?: string | null): Promise<string>;
   getImageJobById(imageJobId: string): Promise<ApiResponse<ImageJobResult>>;
-  getModelSuggestions(
-    search: string,
-    limit?: number,
-    type?: string,
-  ): Promise<ApiResponse<ModelSuggestion[]>>;
-  generateImageJob(
-    prompt: string,
-    imageId: string,
-    loraId?: string | null,
-  ): Promise<unknown>;
-  generateImage(
-    prompt: string,
-    imageId: string,
-    loraId?: string | null,
-  ): Promise<unknown>;
+  getModelSuggestions(search: string, limit?: number, type?: string): Promise<ApiResponse<ModelSuggestion[]>>;
+  generateImageJob(prompt: string, imageId: string, loraId?: string | null): Promise<unknown>;
+  generateImage(prompt: string, imageId: string, loraId?: string | null): Promise<unknown>;
   searchLoras(query: string): Promise<Lora[]>;
   getQuotas(): Promise<unknown>;
-  sleep(ms: number): Promise<void>;
+  getAudioModels(search: string): Promise<ApiResponse<unknown[]>>;
+  uploadAudioFile(fileData: Buffer): Promise<string>;
+  createCoverStemOrTtsJob(
+    audioModelId: string,
+    prompt?: string,
+    inputUrl?: string,
+    pitch?: number,
+    male?: boolean,
+  ): Promise<string>;
+  getAudioUploadUrl(fileName: string): Promise<ApiResponse<{ signedUrl: string; hostedUrl: string }>>;
+  uploadLargeFile(filePath: string, signedUrl: string): Promise<void>;
+  createAudioJob(
+    audioModelId: string,
+    prompt?: string,
+    inputUrl?: string,
+    pitch?: string,
+    male?: string,
+  ): Promise<string>;
+  searchAudioModels(query: string): Promise<AudioModel[]>;
+  log(...args: unknown[]): void;
 }
 
+/**
+ * Helper class for creating signatures for API requests
+ */
 export class SignatureCreator {
-  private secret: string;
-  // private updateStatus: Function | null = null;
-
-  constructor(secret: string) {
+  constructor(private readonly secret: string) {
     if (!secret) {
       throw Error("Secret is required for payload signing");
     }
-    this.secret = secret;
-    // this.updateStatus = this.StatusService
   }
 
+  /**
+   * Creates a signature for API requests
+   */
   createSignature(methodName: string, payload: unknown): string {
     const jsonPayload = payload ? JSON.stringify(payload) : "";
     const data = `${methodName}${jsonPayload}`;
@@ -68,33 +88,35 @@ export class SignatureCreator {
   }
 }
 
-export interface ApiResponse<T> {
-  result: {
-    data: {
-      json: T;
-    };
-  };
-}
-
+/**
+ * Service for interacting with the Weights.gg API
+ */
 @injectable()
 export class DirectApiService implements IDirectApiService {
   private signatureCreator: SignatureCreator;
   private cookie: string;
   private headers: Record<string, string>;
   private page: Page | null = null;
+  private readonly API_BASE_URL = "https://www.weights.com/api/data";
+  private readonly AUTH_SECRET = "j1UO381eyUAhn6Uo/PnuExzhyxR5qGOxe7b92OwTpOc";
   
   constructor(
     @inject(TYPES.Config) config: Config,
     @inject(TYPES.StatusService) private readonly statusService: StatusService,
     @inject(TYPES.ImageService) private readonly imageService: ImageService,
   ) {
-    this.signatureCreator = new SignatureCreator(
-      "j1UO381eyUAhn6Uo/PnuExzhyxR5qGOxe7b92OwTpOc",
-    );
+    this.signatureCreator = new SignatureCreator(this.AUTH_SECRET);
     this.statusService = statusService;
     this.imageService = imageService;
     this.cookie = config.WEIGHTS_GG_COOKIE;
-    this.headers = {
+    this.headers = this.createDefaultHeaders();
+  }
+
+  /**
+   * Creates default headers for API requests
+   */
+  private createDefaultHeaders(): Record<string, string> {
+    return {
       accept: "*/*",
       "cache-control": "no-cache",
       "content-type": "application/json",
@@ -105,6 +127,9 @@ export class DirectApiService implements IDirectApiService {
     };
   }
 
+  /**
+   * Initialize Puppeteer browser
+   */
   async initPuppeteer(): Promise<Page> {
     const { page }: { page: Page } = await connect({
       headless: true,
@@ -115,96 +140,140 @@ export class DirectApiService implements IDirectApiService {
       disableXvfb: false,
       ignoreAllFlags: false,
     });
+    
     this.page = page;
-    await this.page.setCacheEnabled(false); // Disable cache
-    await this.page.goto("https://weights.gg/create", {waitUntil: "networkidle0"});
-    await this.page.exposeFunction(
-      "llmStringForSafety",
-      this.checkPromptSafety.bind(this),
-    );
-    await this.page.exposeFunction(
-      "createImageJob",
-      this.createImageJob.bind(this),
-    );
-    await this.page.exposeFunction(
-      "getImageJobById",
-      this.getImageJobById.bind(this),
-    );
-    await this.page.exposeFunction(
-      "getModelSuggestions",
-      this.getModelSuggestions.bind(this),
-    );
-    await this.page.exposeFunction("getUsage", this.getUsage.bind(this));
-    await this.page.exposeFunction("getAudioModels", this.getAudioModels.bind(this));
-    await this.page.exposeFunction("createCoverStemOrTtsJob", this.createCoverStemOrTtsJob.bind(this));
-    await this.page.exposeFunction("getPendingJobs", this.getPendingJobs.bind(this));
-    await this.page.exposeFunction(
-      "generateImageJob",
-      this.generateImageJob.bind(this),
-    );
-    await this.page.exposeFunction("sleep", this.sleep.bind(this));
+    await this.page.setCacheEnabled(false);
+    await this.page.goto("https://weights.gg/create", { waitUntil: "networkidle0" });
+    
+    await this.exposeFunctionsToPage();
     return this.page;
   }
 
+  /**
+   * Expose service methods to Puppeteer page
+   */
+  private async exposeFunctionsToPage(): Promise<void> {
+    if (!this.page) return;
+
+    const methodsToExpose: (keyof DirectApiService)[] = [
+      "checkPromptSafety",
+      "createImageJob",
+      "getImageJobById",
+      "getModelSuggestions",
+      "getUsage",
+      "getAudioModels",
+      "createCoverStemOrTtsJob",
+      "generateImageJob",
+      "sleep",
+      "randomUUID",
+      "readFile",
+      "log",
+      "getAudioUploadUrl",
+    ];
+
+    for (const method of methodsToExpose) {
+      await this.page.exposeFunction(method, this[method].bind(this));
+    }
+  }
+
+  /**
+   * Utility method to pause execution
+   */
   async sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
+  /**
+   * Utility method for logging
+   */
+  log(...args: unknown[]): void {
+    console.log(...args);
+  }
+
+  /**
+   * Utility method to generate a UUID
+   */
+  randomUUID(): string {
+    return randomUUID();
+  }
+
+  /**
+   * Read a file from the filesystem
+   */
+  async readFile(path: string): Promise<Buffer> {
+    return fs.promises.readFile(path);
+  }
+
+  /**
+   * Makes an API request with proper signature
+   */
+  private async makeApiRequest<T>(
+    endpoint: string, 
+    method: string, 
+    apiMethod: string, 
+    payload?: unknown, 
+    isQueryParams = false
+  ): Promise<ApiResponse<T>> {
+    try {
+      const signature = this.signatureCreator.createSignature(apiMethod, payload);
+      const headers = { ...this.headers, "x-payload-sig": signature };
+      const url = `${this.API_BASE_URL}/${endpoint}`;
+      
+      const fetchOptions: RequestInit = { 
+        method, 
+        headers 
+      };
+      
+      let fullUrl = url;
+      
+      if (method === "GET" && payload && isQueryParams) {
+        const params = new URLSearchParams({
+          input: JSON.stringify({ json: payload }),
+        });
+        fullUrl = `${url}?${params.toString()}`;
+      } else if (payload) {
+        fetchOptions.body = JSON.stringify(isQueryParams ? { json: payload } : payload);
+      }
+      
+      const response = await fetch(fullUrl, fetchOptions);
+      const data = await response.text();
+      
+      return JSON.parse(data);
+    } catch (error) {
+      console.error(`API request error (${endpoint}):`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get user usage information
+   */
   async getUsage(): Promise<ApiResponse<unknown>> {
-    const url =
-      "https://www.weights.com/api/data/users.getUsage?input=%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%7D%7D";
-    const signature = this.signatureCreator.createSignature(
-      "users.getUsage",
-      null,
+    return this.makeApiRequest(
+      "users.getUsage", 
+      "GET", 
+      "users.getUsage", 
+      null, 
+      true
     );
-
-    try {
-      const response = await fetch(url, {
-        method: "GET",
-        headers: { ...this.headers, "x-payload-sig": signature },
-      });
-
-      const data = await response.text();
-
-      return JSON.parse(data);
-    } catch (err) {
-      console.error("Get quota error:", err);
-      throw err;
-    }
   }
 
-  async checkPromptSafety(
-    prompt: string,
-  ): Promise<ApiResponse<SafetyCheckResult>> {
-    const signature = this.signatureCreator.createSignature(
-      "llm.checkStringForSafety",
-      prompt,
+  /**
+   * Check if a prompt is safe to use
+   */
+  async checkPromptSafety(prompt: string): Promise<ApiResponse<SafetyCheckResult>> {
+    return this.makeApiRequest(
+      "llm.checkStringForSafety", 
+      "POST", 
+      "llm.checkStringForSafety", 
+      { json: prompt }
     );
-    const body = JSON.stringify({ json: prompt });
-
-    try {
-      const response = await fetch(
-        "https://www.weights.com/api/data/llm.checkStringForSafety",
-        {
-          method: "POST",
-          headers: { ...this.headers, "x-payload-sig": signature },
-          body,
-        },
-      );
-
-      const data = await response.text();
-
-      return JSON.parse(data);
-    } catch (err) {
-      console.error("Safety check error:", err);
-      throw err;
-    }
   }
 
-  async createImageJob(
-    prompt: string,
-    loraId: string | null = null,
-  ): Promise<string> {
+  /**
+   * Create a new image generation job
+   */
+  async createImageJob(prompt: string, loraId: string | null = null): Promise<string> {
     const body: CreateImageJobBody = {
       json: {
         prompt,
@@ -219,7 +288,6 @@ export class DirectApiService implements IDirectApiService {
       meta: {
         values: {
           seed: ["undefined"],
-          loraId: undefined,
           secondaryLoraId: ["undefined"],
           tertiaryLoraId: ["undefined"],
           inputImageUrl: ["undefined"],
@@ -228,70 +296,38 @@ export class DirectApiService implements IDirectApiService {
       },
     };
 
-    const signatureBody: Record<string, unknown> = {};
-
-    signatureBody.prompt = prompt;
-
-    if (loraId) {
-      signatureBody.loraId = loraId;
-    } else {
+    if (!loraId) {
       body.meta.values.loraId = ["undefined"];
     }
 
-    signatureBody.dimensions = body.json.dimensions;
+    const signatureBody = JSON.parse(JSON.stringify(body.json));
 
-    const signature = this.signatureCreator.createSignature(
-      "creations.createImageJob",
-      signatureBody,
+    const response = await this.makeApiRequest(
+      "creations.createImageJob", 
+      "POST", 
+      "creations.createImageJob", 
+      signatureBody
     );
 
-    try {
-      const response = await fetch(
-        "https://www.weights.com/api/data/creations.createImageJob",
-        {
-          method: "POST",
-          headers: { ...this.headers, "x-payload-sig": signature },
-          body: JSON.stringify(body),
-        },
-      );
-
-      const data = await response.text();
-
-      const result = JSON.parse(data);
-      return result.result.data.json;
-    } catch (err) {
-      console.error("Create image job error:", err);
-      throw err;
-    }
+    return response.result.data.json as string;
   }
 
-  async getImageJobById(
-    imageJobId: string,
-  ): Promise<ApiResponse<ImageJobResult>> {
-    const signature = this.signatureCreator.createSignature(
-      "creations.getImageJobById",
-      imageJobId,
+  /**
+   * Get information about an image job
+   */
+  async getImageJobById(imageJobId: string): Promise<ApiResponse<ImageJobResult>> {
+    return this.makeApiRequest(
+      "creations.getImageJobById", 
+      "GET", 
+      "creations.getImageJobById", 
+      imageJobId, 
+      true
     );
-    const params = new URLSearchParams({
-      input: JSON.stringify({ json: imageJobId }),
-    });
-    const url = `https://www.weights.com/api/data/creations.getImageJobById?${params.toString()}`;
-
-    try {
-      const response = await fetch(url, {
-        method: "GET",
-        headers: { ...this.headers, "x-payload-sig": signature },
-      });
-
-      const data = await response.text();
-
-      return JSON.parse(data);
-    } catch (err) {
-      console.error("Get image job error:", err);
-      throw err;
-    }
   }
 
+  /**
+   * Get model suggestions based on search query
+   */
   async getModelSuggestions(
     search: string,
     limit: number = 25,
@@ -304,369 +340,401 @@ export class DirectApiService implements IDirectApiService {
       direction: "forward",
     };
 
-    const signature = this.signatureCreator.createSignature(
-      "imageTraining.getModelSuggestions",
-      body,
+    return this.makeApiRequest(
+      "imageTraining.getModelSuggestions", 
+      "GET", 
+      "imageTraining.getModelSuggestions", 
+      body, 
+      true
     );
-    const params = new URLSearchParams({
-      input: JSON.stringify({ json: body }),
+  }
+
+  /**
+   * Search for audio models
+   */
+  async getAudioModels(search: string): Promise<ApiResponse<AudioModel[]>> {
+    return this.makeApiRequest(
+      "models.searchAudioModels", 
+      "POST", 
+      "models.searchAudioModels", 
+      search, 
+      true
+    );
+  }
+
+  /**
+   * Get a signed URL for audio upload
+   */
+  async getAudioUploadUrl(fileName: string): Promise<ApiResponse<{signedUrl: string; hostedUrl: string}>> {
+    return this.makeApiRequest(
+      "webapp.getAudioUploadUrl", 
+      "POST", 
+      "webapp.getAudioUploadUrl", 
+      fileName, 
+      true
+    );
+  }
+
+  /**
+   * Upload an audio file
+   */
+  async uploadAudioFile(fileData: Buffer): Promise<string> {
+    this.ensurePageInitialized();
+    
+    this.log(`File loaded: ${fileData.length} bytes`);
+    const uuid = this.randomUUID();
+    
+    const { signedUrl, hostedUrl } = await this.page!.evaluate(async (uuid) => {
+      const fileExtension = ".mp3";
+      const uploadUrlRequest = await this.getAudioUploadUrl(uuid + fileExtension);
+      return uploadUrlRequest.result.data.json;
+    }, uuid);
+      
+    try {
+      const uploadResponse = await fetch(signedUrl, {
+        method: "PUT",
+        body: fileData,
+        headers: {
+          "Content-Length": fileData.length.toString(),
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error(`Upload failed with status: ${uploadResponse.status}`);
+      }
+
+      return hostedUrl;
+    } catch (error) {
+      console.error("Error uploading audio file:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Upload a large file to a signed URL
+   */
+  async uploadLargeFile(filePath: string, signedUrl: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const fileStream = fs.createReadStream(filePath);
+      const options = new URL(signedUrl);
+      
+      const req = https.request({
+        hostname: options.hostname,
+        path: options.pathname + options.search,
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'audio/mpeg',
+          'Content-Length': fs.statSync(filePath).size.toString()
+        }
+      }, (res) => {
+        if (res.statusCode === 200) {
+          resolve();
+        } else {
+          reject(new Error(`Upload failed: ${res.statusCode}`));
+        }
+      });
+      
+      fileStream.pipe(req);
+      req.on('error', (err) => reject(err));
     });
-    const url = `https://www.weights.com/api/data/imageTraining.getModelSuggestions?${params.toString()}`;
-
-    try {
-      const response = await fetch(url, {
-        method: "GET",
-        headers: { ...this.headers, "x-payload-sig": signature },
-      });
-
-      const data = await response.text();
-
-      return JSON.parse(data);
-    } catch (err) {
-      console.error("Get model suggestions error:", err);
-      throw err;
-    }
   }
 
-  async getAudioModels(
-    search: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ): Promise<ApiResponse<any[]>> {
-    const body = {
-      json: search
-    };
-
-    const signature = this.signatureCreator.createSignature(
-      "models.searchAudioModels",
-      search,
-    );
-    // console.log(signature);
-    const url = `https://www.weights.com/api/data/models.searchAudioModels`;
-
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { ...this.headers, "x-payload-sig": signature },
-        body: JSON.stringify(body),
-      });
-
-      const data = await response.text();
-
-      return JSON.parse(data);
-    } catch (err) {
-      console.error("Get model suggestions error:", err);
-      throw err;
-    }
-  }
-
+  /**
+   * Create a cover, stem or TTS job
+   */
   async createCoverStemOrTtsJob(
-    prompt: string,
     audioModelId: string,
+    prompt?: string,
+    inputUrl?: string,
+    pitch: number = 0,
+    male: boolean = true,
   ): Promise<string> {
     const body = {
-      "json": {
-          "rvcModelId": audioModelId,
-          "duetRvcModelId": null,
-          "inputUrl": null,
-          "ttsText": prompt,
-          "ttsBaseModel": "m-us-1",
-          "origin": "WEB",
-          "inputType": "TTS",
-          "inputFileName": null,
-          "pitch": 0,
-          "instrumentalPitch": null,
-          "deEcho": null,
-          "isolateMainVocals": null,
-          "consonantProtection": null,
-          "volumeEnvelope": null,
-          "preStemmed": true,
-          "modelRegions": null
-      },
-      "meta": {
-          "values": {
-              "duetRvcModelId": [
-                  "undefined"
-              ],
-              "inputUrl": [
-                  "undefined"
-              ],
-              "inputFileName": [
-                  "undefined"
-              ],
-              "instrumentalPitch": [
-                  "undefined"
-              ],
-              "deEcho": [
-                  "undefined"
-              ],
-              "isolateMainVocals": [
-                  "undefined"
-              ],
-              "consonantProtection": [
-                  "undefined"
-              ],
-              "volumeEnvelope": [
-                  "undefined"
-              ],
-              "modelRegions": [
-                  "undefined"
-              ]
-          }
+      json: this.createCoverStemJobPayload(audioModelId, prompt, inputUrl, pitch, male),
+      meta: { values: {} }
+    } as CreateAudioJobBody;
+
+    // Add undefined values to meta
+    this.addUndefinedValuesToMeta(body);
+
+    const signatureBody = JSON.parse(JSON.stringify(body.json));
+    
+    const response = await this.makeApiRequest(
+      "creations.createCoverStemOrTtsJob", 
+      "POST", 
+      "creations.createCoverStemOrTtsJob", 
+      signatureBody
+    );
+
+    const responseBody = response.result.data.json as { id: string };
+
+    return responseBody.id;
+  }
+
+  /**
+   * Helper to create payload for cover stem job
+   */
+  private createCoverStemJobPayload(
+    audioModelId: string,
+    prompt?: string,
+    inputUrl?: string,
+    pitch: number = 0,
+    male: boolean = true,
+  ) {
+    return {
+      rvcModelId: audioModelId,
+      duetRvcModelId: undefined,
+      inputUrl: inputUrl ? inputUrl : undefined,
+      ttsText: !inputUrl ? prompt : "",
+      ttsBaseModel: male ? "m-us-1" : "f-us-1",
+      origin: "WEB",
+      inputType: inputUrl ? "RECORDING" : "TTS",
+      inputFileName: inputUrl ? "Custom Recording" : undefined,
+      pitch: pitch,
+      instrumentalPitch: undefined,
+      deEcho: undefined,
+      isolateMainVocals: undefined,
+      consonantProtection: undefined,
+      volumeEnvelope: undefined,
+      preStemmed: true,
+      modelRegions: undefined
+    };
+  }
+
+  /**
+   * Add undefined values to meta field
+   */
+  private addUndefinedValuesToMeta(body: CreateImageJobBody | CreateAudioJobBody): void {
+    for (const key in body.json) {
+      const keyValue = Object.prototype.hasOwnProperty.call(body.json, key);
+      if (keyValue === null || keyValue === undefined) {
+        if (!body.meta.values) {
+          body.meta.values = {};
+        }
+        (body.meta.values as { [key: string]: string[] })[key] = ["undefined"];
       }
-  }
-
-    const signatureBody = {"rvcModelId": audioModelId,"ttsText":prompt,"ttsBaseModel":"m-us-1","origin":"WEB","inputType":"TTS","pitch":0,"preStemmed":true};
-
-    const signature = this.signatureCreator.createSignature(
-      "creations.createCoverStemOrTtsJob",
-      signatureBody,
-    );
-
-    try {
-      const response = await fetch(
-        "https://www.weights.com/api/data/creations.createCoverStemOrTtsJob",
-        {
-          method: "POST",
-          headers: { ...this.headers, "x-payload-sig": signature },
-          body: JSON.stringify(body),
-        },
-      );
-
-      const data = await response.text();
-
-      return JSON.parse(data).result.data.json.id;
-    } catch (err) {
-      console.error("Create cover stem or TTS job error:", err);
-      throw err;
     }
   }
 
-  async getPendingJobs(
-    coverJobIds: string[],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ): Promise<any> {
-    const signature = this.signatureCreator.createSignature(
-      "creations.getPendingJobs",
-      { coverJobIds, videoJobIds: [], trainingJobIds: [] },
-    );
-
-    try {
-      const params = new URLSearchParams({
-        input: JSON.stringify({
-          json: { coverJobIds, videoJobIds: [], trainingJobIds: [] },
-        }),
-      });
-      const url = `https://www.weights.com/api/data/creations.getPendingJobs?${params.toString()}`;
-      // console.log(url);
-      // console.log(signature);
-      const response = await fetch(url, {
-        method: "GET",
-        headers: { ...this.headers, "x-payload-sig": signature },
-      });
-
-
-      const data = await response.text();
-
-      return JSON.parse(data);
-    } catch (err) {
-      console.error("Get pending jobs error:", err);
-      throw err;
-    }
-  }
-
+  /**
+   * Generate an image job and track its progress
+   */
   async generateImageJob(
     prompt: string,
     imageId: string,
     loraId: string | null = null,
   ): Promise<unknown> {
-    const llmStringForSafetyRequest = await this.checkPromptSafety(prompt);
-    const llmStringForSafetyResult = llmStringForSafetyRequest.result.data.json;
-    if (
-      !llmStringForSafetyResult.stringIsUnsafe &&
-      !llmStringForSafetyResult.hasCSAM &&
-      !llmStringForSafetyResult.hasSelfHarm
-    ) {
-      const createImageJobRequest = await this.createImageJob(prompt, loraId);
-      const imageJobId = createImageJobRequest;
-      let getImageJobByIdRequest = await this.getImageJobById(imageJobId);
-      let getImageJobByIdResult: {
-        status: string;
-        imageB64?: string;
-        outputUrl: string;
-      } = getImageJobByIdRequest.result.data.json;
-
-      let oldStatus = null;
-      let oldB64 = null;
-
-      while (getImageJobByIdResult.status !== "SUCCEEDED") {
-        await this.sleep(100);
-
-        if (getImageJobByIdResult.status !== oldStatus) {
-          this.statusService?.updateImageStatus(imageId, "STARTING");
-          oldStatus = getImageJobByIdResult.status;
-        }
-
-        if (
-          getImageJobByIdResult.imageB64 &&
-          getImageJobByIdResult.imageB64 !== oldB64
-        ) {
-          await this.imageService?.saveBase64Image(
-            getImageJobByIdResult.imageB64,
-            imageId,
-            false,
-          );
-          this.statusService?.updateImageStatus(imageId, "PENDING");
-          oldB64 = getImageJobByIdResult.imageB64;
-        }
-
-        getImageJobByIdRequest = await this.getImageJobById(imageJobId);
-        getImageJobByIdResult = getImageJobByIdRequest.result.data.json;
-      }
-
-      await this.imageService?.downloadImage(
-        getImageJobByIdResult.outputUrl,
-        imageId,
-      );
-      this.statusService?.updateImageStatus(imageId, "COMPLETED");
-      return getImageJobByIdResult.outputUrl;
+    // Check safety first
+    const safetyResult = await this.checkPromptSafety(prompt);
+    const safetyData = safetyResult.result.data.json;
+    
+    if (this.isPromptSafe(safetyData)) {
+      return this.processImageGeneration(prompt, imageId, loraId);
     } else {
-      console.error(
-        "llmStringForSafety error: ",
-        "String is unsafe, please check your input.",
-      );
       this.statusService?.updateImageStatus(
         imageId,
         "FAILED",
-        "String is unsafe, please check your input.",
+        "String is unsafe, please check your input."
       );
       return { error: "String is unsafe, please check your input." };
     }
   }
 
+  /**
+   * Check if prompt is safe
+   */
+  private isPromptSafe(safetyData: SafetyCheckResult): boolean {
+    return !(
+      safetyData.stringIsUnsafe || 
+      safetyData.hasCSAM || 
+      safetyData.hasSelfHarm
+    );
+  }
+
+  /**
+   * Process the image generation job
+   */
+  private async processImageGeneration(
+    prompt: string,
+    imageId: string,
+    loraId: string | null = null,
+  ): Promise<unknown> {
+    const imageJobId = await this.createImageJob(prompt, loraId);
+    let jobResult = await this.getImageJobById(imageJobId);
+    let jobData = jobResult.result.data.json;
+
+    let oldStatus = null;
+    let oldB64 = null;
+
+    // Poll until job completes
+    while (jobData.status !== "SUCCEEDED") {
+      await this.sleep(1000);
+
+      // Update status if changed
+      if (jobData.status !== oldStatus) {
+        this.statusService?.updateImageStatus(imageId, "STARTING");
+        oldStatus = jobData.status;
+      }
+
+      // Save intermediate image if available
+      if (jobData.imageB64 && jobData.imageB64 !== oldB64) {
+        await this.imageService?.saveBase64Image(
+          jobData.imageB64,
+          imageId,
+          false,
+        );
+        this.statusService?.updateImageStatus(imageId, "PENDING");
+        oldB64 = jobData.imageB64;
+      }
+
+      // Get latest job status
+      jobResult = await this.getImageJobById(imageJobId);
+      jobData = jobResult.result.data.json;
+    }
+
+    // Download final image and update status
+    await this.imageService?.downloadImage(jobData.outputUrl, imageId);
+    this.statusService?.updateImageStatus(imageId, "COMPLETED");
+    return jobData.outputUrl;
+  }
+
+  /**
+   * Generate an image using the puppeteer instance
+   */
   async generateImage(
     prompt: string,
     imageId: string,
     loraId: string | null = null,
   ): Promise<unknown> {
-    if (!this.page) {
-      throw new Error(
-        "Puppeteer page is not initialized. Call initPuppeteer() first.",
-      );
-    }
-    const result = await this.page.evaluate(
+    this.ensurePageInitialized();
+    
+    return this.page!.evaluate(
       async (prompt, imageId, loraId) => {
-        const job = await this.generateImageJob(prompt, imageId, loraId);
-        return job;
+        return await this.generateImageJob(prompt, imageId, loraId);
       },
       prompt,
       imageId,
       loraId,
     );
-    return result;
   }
 
+  /**
+   * Ensure the puppeteer page is initialized
+   */
+  private ensurePageInitialized(): void {
+    if (!this.page) {
+      throw new Error(
+        "Puppeteer page is not initialized. Call initPuppeteer() first."
+      );
+    }
+  }
+
+  /**
+   * Search for Loras
+   */
   async searchLoras(query: string): Promise<Lora[]> {
-    if (!this.page) {
-      throw new Error(
-        "Puppeteer page is not initialized. Call initPuppeteer() first.",
-      );
-    }
+    this.ensurePageInitialized();
+    
     if (!query) {
       throw new Error("Query is required for Lora search.");
     }
 
-    const result = await this.page.evaluate(async (query) => {
+    return this.page!.evaluate(async (query) => {
       const loraSearchRequest = await this.getModelSuggestions(query);
-      const loraSearchResult = loraSearchRequest.result.data.json;
-      return loraSearchResult.map((item: ModelSuggestion) => {
-        return {
-          id: item.id,
-          name: item.name,
-          description: item.description,
-          image: item.ImageLoraTrainingJob[0]?.UploadedTrainingImage[0]?.url,
-          tags: [
-            item.isNSFW ? "NSFW" : undefined,
-            item.isPublic ? "Public" : "Private",
-          ].filter(Boolean) as string[],
-          triggers: item.triggers,
-        };
-      });
+      return loraSearchRequest.result.data.json.map((item: ModelSuggestion) => ({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        image: item.ImageLoraTrainingJob[0]?.UploadedTrainingImage[0]?.url,
+        tags: [
+          item.isNSFW ? "NSFW" : undefined,
+          item.isPublic ? "Public" : "Private",
+        ].filter(Boolean) as string[],
+        triggers: item.triggers,
+      }));
     }, query);
-    return result;
   }
 
-  async searchAudioModels(query: string): Promise<unknown[]> {
-    if (!this.page) {
-      throw new Error(
-        "Puppeteer page is not initialized. Call initPuppeteer() first.",
-      );
-    }
+  /**
+   * Search for audio models
+   */
+  async searchAudioModels(query: string): Promise<AudioModel[]> {
+    this.ensurePageInitialized();
+    
     if (!query) {
-      throw new Error("Query is required for Lora search.");
+      throw new Error("Query is required for audio model search.");
     }
 
-    const result = await this.page.evaluate(async (query) => {
-      const loraSearchRequest = await this.getAudioModels(query);
-      const loraSearchResult = loraSearchRequest.result.data.json;
-      return loraSearchResult.map((item) => {
-        return {
-          id: item.id,
-          title: item.title,
-          content: item.content,
-          image: item.image,
-        };
-      });
+    return this.page!.evaluate(async (query) => {
+      const modelSearchRequest = await this.getAudioModels(query);
+      return modelSearchRequest.result.data.json.map((item: AudioModel) => ({
+        id: item.id,
+        title: item.title,
+        content: item.content,
+        image: item.image,
+      }));
     }, query);
-    return result;
   }
 
+  /**
+   * Create an audio job and wait for completion
+   */
   async createAudioJob(
-    prompt: string,
     audioModelId: string,
+    prompt?: string,
+    inputUrl?: string,
+    pitch: string = "0",
+    male: string = "true"
   ): Promise<string> {
-    if (!this.page) {
-      throw new Error(
-        "Puppeteer page is not initialized. Call initPuppeteer() first.",
+    this.ensurePageInitialized();
+    
+    if (!prompt && !audioModelId) {
+      throw new Error("Prompt or audioModelId is required for audio job.");
+    }
+
+    return this.page!.evaluate(async (audioModelId, prompt, inputUrl, pitch, male) => {
+      // Create the job
+      const jobId = await this.createCoverStemOrTtsJob(
+        audioModelId, 
+        prompt, 
+        inputUrl, 
+        parseInt(pitch), 
+        JSON.parse(male)
       );
-    }
-    if (!prompt) {
-      throw new Error("Prompt is required for Lora search.");
-    }
-    if (!audioModelId) {
-      throw new Error("Audio model ID is required for Lora search.");
-    }
+      await this.sleep(1000);
 
-    const result = await this.page.evaluate(async (prompt, audioModelId) => {
-      const loraSearchResult = await this.createCoverStemOrTtsJob(prompt, audioModelId);
-
-      // console.log(loraSearchResult);
-
-      let getImageJobByIdRequest = await this.getPendingJobs([loraSearchResult]);
-      let getImageJobByIdResult = getImageJobByIdRequest.result.data.json;
-      let result = getImageJobByIdResult.coverJobs[0];
-      while (result.status !== "SUCCEEDED") {
-        console.log(result.status);
-        await this.sleep(1000);
-        getImageJobByIdRequest = await this.getPendingJobs([loraSearchResult]);
-        getImageJobByIdResult = getImageJobByIdRequest.result.data.json;
-        result = getImageJobByIdResult.coverJobs[0];
+      // Poll until output is available
+      const outputUrl = "https://tracks.weights.com/" + jobId + "/output_track.mp3";
+      let available = false;
+      
+      while (!available) {
+        try {
+          const response = await fetch(outputUrl);
+          const text = await response.text();
+          if (!text.includes("Error 404")) {
+            available = true;
+          } else {
+            await this.sleep(1000);
+          }
+        } catch (e) {
+          await e;
+          await this.sleep(1000);
+        }
       }
 
-      return "https://tracks.weights.com/" + loraSearchResult + "/output_track.mp3";
-    }, prompt, audioModelId);
-    return result;
+      return outputUrl;
+    }, audioModelId, prompt, inputUrl, pitch, male);
   }
 
+  /**
+   * Get user quotas
+   */
   async getQuotas(): Promise<unknown> {
-    if (!this.page) {
-      throw new Error(
-        "Puppeteer page is not initialized. Call initPuppeteer() first.",
-      );
-    }
-    return await this.page.evaluate(async () => {
-      const getUsageRequest = await this.getUsage();
-      const getUsageResult = getUsageRequest.result.data.json;
-      return getUsageResult;
+    this.ensurePageInitialized();
+    
+    return this.page!.evaluate(async () => {
+      const usageResponse = await this.getUsage();
+      return usageResponse.result.data.json;
     });
   }
 }

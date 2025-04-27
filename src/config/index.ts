@@ -9,6 +9,7 @@ interface Config {
   IMAGE_WIDTH: number;
   IMAGE_DIR: string;
   LORA_CACHE_FILE: string;
+  AUDIO_CACHE_FILE: string;
 }
 
 export const weightsConfig: Config = {
@@ -20,6 +21,7 @@ export const weightsConfig: Config = {
   // IMAGE_DIR: path.join(__dirname,'../..','images'),
   IMAGE_DIR: "../images",
   LORA_CACHE_FILE: "lora_cache.json",
+  AUDIO_CACHE_FILE: "audio_cache.json",
 };
 
 export default weightsConfig;

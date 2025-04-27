@@ -104,6 +104,16 @@ class WeightsApi:
             response = await self.api_call('/search-loras', method='GET', body={'query': query})
             return await response.json()
         return await self.call_with_health_check(call)
+    
+    async def search_audio_models(self, query: str) -> Dict:
+        """
+        Searches for audio models.
+        """
+        async def call():
+            response = await self.api_call('/search-audio-models', method='GET', body={'query': query})
+            return await response.json()
+        return await self.call_with_health_check(call)
+
 
     async def generate_image(self, prompt: str, lora_name: Optional[str] = None) -> Dict:
         """

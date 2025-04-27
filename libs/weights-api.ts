@@ -28,6 +28,15 @@ export interface Lora {
   image: string;
 }
 
+
+export interface AudioModel {
+  id: string,
+  title: string,
+  content: string,
+  image: string,
+}
+
+
 export interface Params {
   [key: string]: object | string | null;
 }
@@ -165,6 +174,19 @@ export class WeightsApi {
       ),
     );
   };
+
+  /**
+   * Searches for audio models.
+   * @param params - Object containing search query.
+   * @returns Promise with search results.
+   */
+  searchAudioModels = async (params: { query: string }): Promise<AudioModel[]> => {
+    return this.callWithHealthCheck(() =>
+      this.apiCall("/search-voices-models", HttpMethod.GET, params).then(
+        (response) => response.json(),
+      ),
+    );
+  }
 
   /**
    * Generates an image based on parameters.

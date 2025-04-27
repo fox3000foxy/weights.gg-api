@@ -1,60 +1,44 @@
 import { injectable } from "inversify";
+import { ImageStatus } from "types";
 
 export interface IStatusService {
-  imageStatuses: {
-    [key: string]: {
-      status: string;
-      lastModifiedDate?: number;
-      error: string | null;
-    };
-  };
+  imageStatuses: Record<string, ImageStatus>;
   updateImageStatus(
     imageId: string,
     status: string,
     errorMessage?: string | null,
   ): void;
-  getImageStatus(
-    imageId: string,
-  ):
-    | { status: string; lastModifiedDate?: number; error: string | null }
-    | undefined;
+  getImageStatus(imageId: string): ImageStatus;
 }
 
 @injectable()
 export class StatusService implements IStatusService {
-  public imageStatuses: {
-    [key: string]: {
-      status: string;
-      lastModifiedDate?: number;
-      error: string | null;
-    };
-  } = {};
+  public imageStatuses: Record<string, ImageStatus> = {};
 
   public updateImageStatus(
     imageId: string,
     status: string,
-    errorMessage?: string | null,
+    errorMessage: string | null = null,
   ): void {
     this.imageStatuses[imageId] = {
       status,
       lastModifiedDate: Date.now(),
-      error:
-        status == "FAILED"
-          ? errorMessage || "No error description provided"
-          : null,
+      error: status === "FAILED" ? errorMessage || "No error description provided" : null,
     };
 
-    if (errorMessage) {
+    if (status === "FAILED" && errorMessage) {
       console.error(`Error for image ${imageId}: ${errorMessage}`);
     }
   }
 
-  public getImageStatus(
-    imageId: string,
-  ):
-    | { status: string; lastModifiedDate?: number; error: string | null }
-    | undefined {
-    return this.imageStatuses[imageId] || {status: "NOT_FOUND", error: null};
+  public getImageStatus(imageId: string): ImageStatus {
+    return (
+      this.imageStatuses[imageId] || {
+        status: "NOT_FOUND",
+        lastModifiedDate: undefined,
+        error: null,
+      }
+    );
   }
 }
 

@@ -13,8 +13,13 @@ export class StatusController implements interfaces.Controller {
 
   @httpGet("/:imageId", apiKeyCheck)
   public async getHealth(req: Request, res: Response): Promise<void> {
-    const { imageId } = req.params;
-    const status = this.statusService.getImageStatus(imageId);
-    res.send(status);
+    try {
+      const { imageId } = req.params;
+      const status = await this.statusService.getImageStatus(imageId);
+      res.send(status);
+    } catch (error) {
+      console.error("Error in getHealth:", error);
+      res.status(500).send({ error: "An unexpected error occurred." });
+    }
   }
 }
