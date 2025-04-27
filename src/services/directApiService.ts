@@ -4,34 +4,11 @@ import type { Page } from "rebrowser-puppeteer-core";
 import StatusService from "./statusService";
 import ImageService from "./imageService";
 import { injectable, inject } from "inversify";
-<<<<<<< HEAD
 import { Lora, SafetyCheckResult, CreateImageJobBody,  ImageJobResult,  ModelSuggestion,  TYPES,  AudioModel, ApiResponse } from "../types";
-=======
-import {
-  Lora,
-  SafetyCheckResult,
-  CreateImageJobBody,
-  ImageJobResult,
-  ModelSuggestion,
-  TYPES,
-  AudioModel,
-} from "../types";
->>>>>>> 64dca39f48a1373b0789640b8abe91463eeb1215
 import { Config } from "../config";
 import { randomUUID } from "crypto";
 import fs from 'fs';
 import https from 'https';
-<<<<<<< HEAD
-=======
-
-export interface ApiResponse<T> {
-  result: {
-    data: {
-      json: T;
-    };
-  };
-}
->>>>>>> 64dca39f48a1373b0789640b8abe91463eeb1215
 
 export interface IDirectApiService {
   initPuppeteer(): Promise<Page>;
