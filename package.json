@@ -14,7 +14,6 @@
     "test": "npx jest"
   },
   "dependencies": {
-    "body-parser": "^2.2.0",
     "cors": "^2.8.5",
     "crypto-js": "^4.2.0",
     "dotenv": "^16.5.0",
