@@ -28,6 +28,15 @@ export interface Lora {
   image: string;
 }
 
+
+export interface AudioModel {
+  id: string,
+  title: string,
+  content: string,
+  image: string,
+}
+
+
 export interface Params {
   [key: string]: object | string | null;
 }
@@ -167,6 +176,19 @@ export class WeightsApi {
   };
 
   /**
+   * Searches for audio models.
+   * @param params - Object containing search query.
+   * @returns Promise with search results.
+   */
+  searchAudioModels = async (params: { query: string }): Promise<AudioModel[]> => {
+    return this.callWithHealthCheck(() =>
+      this.apiCall("/search-voices-models", HttpMethod.GET, params).then(
+        (response) => response.json(),
+      ),
+    );
+  }
+
+  /**
    * Generates an image based on parameters.
    * @param params - Object containing query and optional loraName.
    * @returns Promise with generation results.
@@ -178,6 +200,49 @@ export class WeightsApi {
       this.apiCall("/generateImage", HttpMethod.GET, params).then((response) =>
         response.json(),
       ),
+    );
+  };
+
+  /**
+   * Generates audio from text.
+   * @param voiceModelId - The ID of the voice model to use.
+   * @param text - The text to convert to speech.
+   * @param pitch - The pitch of the voice (optional).
+   * @returns Promise with generation results.
+   */
+  generateFromTTS = async (
+    voiceModelName: string,
+    text: string,
+    pitch: number = 0,
+    male: boolean = true,
+  ): Promise<{result: string}> => {
+    return this.callWithHealthCheck(() =>
+      this.apiCall(
+        "/voice",
+        HttpMethod.POST,
+        { voiceModelName, text, pitch: pitch.toString(), male: male.toString() },
+      ).then((response) => response.json()),
+    );
+  };
+
+  /**
+   * Generates audio from an audio URL.
+   * @param voiceModelId - The ID of the voice model to use.
+   * @param audioUrl - The URL of the audio file to use as input.
+   * @param pitch - The pitch of the voice (optional).
+   * @returns Promise with generation results.
+   */
+  generateFromAudioURL = async (
+    voiceModelName: string,
+    audioUrl: string,
+    pitch: number = 0,
+  ): Promise<{result: string}> => {
+    return this.callWithHealthCheck(() =>
+      this.apiCall(
+        "/voice",
+        HttpMethod.POST,
+        { voiceModelName, audioUrl, pitch: pitch.toString() },
+      ).then((response) => response.json()),
     );
   };
 

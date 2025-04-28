@@ -35,15 +35,25 @@ export class ImageService implements IImageService {
   }
 
   public async downloadImage(url: string, imageId: string): Promise<string> {
+    const filePath = path.join(
+      path.join(__dirname, "..", this.config.IMAGE_DIR),
+      `${imageId}.jpg`,
+    );
+
     return new Promise((resolve, reject) => {
-      const filePath = path.join(
-        path.join(__dirname, "..", this.config.IMAGE_DIR),
-        `${imageId}.jpg`,
-      );
       const file = fs.createWriteStream(filePath);
 
       https
         .get(url, (response) => {
+          if (response.statusCode !== 200) {
+            fs.unlink(filePath, () => {
+              reject(
+                new Error(`Failed to download image. Status code: ${response.statusCode}`),
+              );
+            });
+            return;
+          }
+
           response.pipe(file);
           file.on("finish", () => file.close(() => resolve(filePath)));
         })
@@ -89,6 +99,8 @@ export class ImageService implements IImageService {
         return;
       }
 
+      const tenMinutes = 10 * 60 * 1000;
+
       files.forEach((file) => {
         const filePath = path.join(IMAGE_DIR, file);
         fs.stat(filePath, (err, stats) => {
@@ -98,7 +110,6 @@ export class ImageService implements IImageService {
           }
 
           const fileAge = Date.now() - stats.mtimeMs;
-          const tenMinutes = 10 * 60 * 1000;
 
           if (fileAge > tenMinutes) {
             fs.unlink(filePath, (err) => {

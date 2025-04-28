@@ -16,30 +16,36 @@ export class GenerateImageController implements interfaces.Controller {
   ) {}
 
   @httpGet("/", apiKeyCheck)
-  public async generateImage(req: Request, res: Response) {
-    const { prompt, loraName } = req.query;
+  public async generateImage(req: Request, res: Response): Promise<void> {
+    try {
+      const { prompt, loraName } = req.query;
 
-    if (!prompt || typeof prompt !== "string" || prompt.length < 10) {
-      res.status(400).send({ error: "Prompt is too short" });
-      return;
+      if (!prompt || typeof prompt !== "string" || prompt.length < 10) {
+        return this.sendError(res, 400, "Prompt is too short");
+      }
+
+      const imageId = this.imageService.generateImageId();
+
+      if (process.env.FOOOCUS_ENABLED && (!loraName || typeof loraName !== "string")) {
+        await this.handleFooocusGeneration(req, res, prompt as string, imageId);
+      } else {
+        await this.handleDirectApiGeneration(res, prompt as string, loraName as string, imageId);
+      }
+    } catch (error) {
+      console.error("Error in generateImage:", error);
+      this.sendError(res, 500, "An unexpected error occurred.");
     }
+  }
 
-    const imageId = this.imageService.generateImageId();
-
-    if (
-      process.env.FOOOCUS_ENABLED &&
-      (!loraName || typeof loraName !== "string")
-    ) {
-      const headers = {
-        "content-type": "application/json",
-      };
-
+  private async handleFooocusGeneration(req: Request, res: Response, prompt: string, imageId: string): Promise<void> {
+    try {
+      const headers = { "content-type": "application/json" };
       const { data } = await fetch("https://fooocus.one/api/predictions", {
         headers,
         body: JSON.stringify({
           model: "black-forest-labs/flux-schnell",
           input: {
-            prompt: req.query.prompt,
+            prompt,
             go_fast: true,
             megapixels: "0.25",
             num_outputs: 1,
@@ -53,71 +59,64 @@ export class GenerateImageController implements interfaces.Controller {
         method: "POST",
       }).then((res) => res.json());
 
-      let output = null;
-      while (!output) {
-        const sleep = (ms: number) =>
-          new Promise((resolve) => setTimeout(resolve, ms));
-        await sleep(200);
-        fetch("https://fooocus.one/api/predictions/" + data.id, {
-          headers,
-          referrer: "https://fooocus.one/fr/apps/flux",
-          referrerPolicy: "strict-origin-when-cross-origin",
-          body: null,
-          method: "GET",
-          mode: "cors",
-          credentials: "include",
-        })
-          .then((res) => res.json())
-          .then((data) => {
-            if (data.output) {
-              output = data.output[0];
-            }
-          });
-      }
+      const output = await this.pollFooocusOutput(data.id, headers);
+      if (!output) throw new Error("Failed to retrieve Fooocus output");
 
-      fetch(output)
-        .then((response) => {
-          if (!response.ok) throw new Error("Network response was not ok");
-          if (!response.body) throw new Error("Response body is null");
-        })
-        .catch((err) => {
-          console.error(err);
-          res.status(500).send("Error fetching image");
-        });
       await this.imageService.downloadImage(output, imageId);
       this.statusService.updateImageStatus(imageId, "COMPLETED");
-      res.setHeader("Content-Type", "application/json");
-      res.send({
-        success: true,
-        imageId: imageId,
-        statusUrl: req.hostname + `/status/${imageId}`,
-      });
-    } else {
-      this.statusService.updateImageStatus(imageId, "QUEUED");
 
-      if (loraName && typeof loraName === "string") {
-        const loras = await this.directApiService.searchLoras(loraName);
-        if (loras.length === 0) {
-          this.directApiService.generateImage(prompt, imageId);
-        }
+      res.json({
+        success: true,
+        imageId,
+        statusUrl: `${req.hostname}/status/${imageId}`,
+      });
+    } catch (error) {
+      console.error("Error in handleFooocusGeneration:", error);
+      this.sendError(res, 500, "Error generating image with Fooocus.");
+    }
+  }
+
+  private async pollFooocusOutput(predictionId: string, headers: Record<string, string>): Promise<string | null> {
+    let output = null;
+    while (!output) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      const data = await fetch(`https://fooocus.one/api/predictions/${predictionId}`, {
+        headers,
+        method: "GET",
+      }).then((res) => res.json());
+      if (data.output) {
+        output = data.output[0];
+      }
+    }
+    return output;
+  }
+
+  private async handleDirectApiGeneration(res: Response, prompt: string, loraName: string, imageId: string): Promise<void> {
+    this.statusService.updateImageStatus(imageId, "QUEUED");
+
+    if (loraName) {
+      const loras = await this.directApiService.searchLoras(loraName);
+      if (loras.length === 0) {
+        this.directApiService.generateImage(prompt, imageId);
+      } else {
         const loraId = loras[0]?.id;
         const triggerWord = loras[0]?.triggers[0];
         this.statusService.updateImageStatus(imageId, "STARTING");
-        this.directApiService.generateImage(
-          triggerWord + ", " + prompt,
-          imageId,
-          loraId,
-        );
-      } else {
-        this.statusService.updateImageStatus(imageId, "STARTING");
-        this.directApiService.generateImage(prompt, imageId);
+        this.directApiService.generateImage(`${triggerWord}, ${prompt}`, imageId, loraId);
       }
-
-      res.send({
-        success: true,
-        imageId,
-        statusUrl: `/status/${imageId}`,
-      });
+    } else {
+      this.statusService.updateImageStatus(imageId, "STARTING");
+      this.directApiService.generateImage(prompt, imageId);
     }
+
+    res.json({
+      success: true,
+      imageId,
+      statusUrl: `/status/${imageId}`,
+    });
+  }
+
+  private sendError(res: Response, statusCode: number, message: string): void {
+    res.status(statusCode).send({ error: message });
   }
 }

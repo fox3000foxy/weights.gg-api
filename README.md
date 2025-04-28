@@ -1,14 +1,17 @@
 - [Weights.gg Unofficial API](#weightsgg-unofficial-api)
     - [✨ Features](#-features)
-    - [⚠️ Warning](#%EF%B8%8F-warning)
+    - [⚠️ Warning](#️-warning)
     - [🚀 Endpoints](#-endpoints)
         - [🩺 Health Check](#health-check)
         - [🔍 Search LoRAs](#search-loras)
+        - [🎤 Search Audio Models](#search-audio-models)
         - [🚦 Image Status](#image-status)
         - [🖼️ Generate Image](#generate-image)
         - [💰 API Quota](#api-quota)
+        - [🎤 Voice Generation](#-voice-generation)
     - [📖 Libraries](#-libraries)
-    - [⚠️ Compliance with Weights Terms of Service](#-compliance-with-weights-terms-of-service)
+    - [⚠️ DISCLAIMER – UNOFFICIAL API](#️-disclaimer--unofficial-api)
+    - [❗ Compliance with Weights Terms of Service](#-compliance-with-weights-terms-of-service)
     - [🤝 Community-driven intent](#-community-driven-intent)
 
 # Weights.gg Unofficial API
@@ -28,125 +31,137 @@ An automated image generation tool for Weights.gg, leveraging Puppeteer and an E
 ## ⚠️ Warning
 
 Generated images expire after 10 minutes. Download promptly!
-
 ## 🚀 Endpoints
 
 ### 🩺 Health Check
 
 - `/health`: Checks server status.
+    - **Method**: `GET`
+    - **Response**:
+        ```json
+        {
+          "status": "string"
+        }
+        ```
 
 ### 🔍 Search LoRAs
 
 - `/search-loras`
+    - **Method**: `GET`
     - **Query Parameter**:
         - `query` (required): URL-encoded search term.
     - **Response**: JSON array of LoRA objects:
-        - `name`: LoRA name.
-        - `image`: LoRA image URL.
-        - `tags`: Array of tags.
+        ```json
+        [
+          {
+            "name": "string",
+            "description": "string",
+            "tags": ["string"],
+            "image": "string"
+          }
+        ]
+        ```
+
+### 🎤 Search Audio Models
+
+- `/search-voices-models`
+    - **Method**: `GET`
+    - **Query Parameter**:
+        - `query` (required): URL-encoded search term.
+    - **Response**: JSON array of AudioModel objects:
+        ```json
+        [
+          {
+            "id": "string",
+            "title": "string",
+            "content": "string",
+            "image": "string"
+          }
+        ]
+        ```
 
 ### 🚦 Image Status
 
 - `/status/:imageId`
+    - **Method**: `GET`
     - **Path Parameter**:
         - `imageId` (required): Image ID.
     - **Response**:
-        - `status`: (QUEUED, STARTING, PENDING, COMPLETED, FAILED, NOT_FOUND).
-        - `prompt`: Generation prompt.
-        - `lastModifiedDate`: Last status update.
-        - `error`: Error message (if applicable).
+        ```json
+        {
+          "status": "PENDING | PROCESSING | COMPLETED | FAILED",
+          "lastModifiedDate": "string",
+          "error": "string"
+        }
+        ```
 
 ### 🖼️ Generate Image
 
 - `/generateImage`
+    - **Method**: `GET`
     - **Query Parameters**:
         - `prompt` (required): URL-encoded prompt.
         - `loraName` (optional): URL-encoded LoRA name.
     - **Response**:
-        - `success`: Boolean.
-        - `imageId`: Unique ID.
-        - `imageUrl`: Image URL.
-        - `statusUrl`: Status check URL.
+        ```json
+        {
+          "imageId": "string"
+        }
+        ```
 
 ### 💰 API Quota
 
-- `/quota`: Retrieves API quota information.
-    - **Response**: JSON object containing quota details, including limits, usage, and remaining credits for various features.
+- `/quota`
+    - **Method**: `GET`
+    - **Response**: string
 
-    ```json
-    {
-    "isPremium": true,
-    "usage": {
-        "QUEUED_IMAGE_JOBS": 0,
-        "QUEUED_COVER_JOBS": 0,
-        "QUEUED_SONG_JOBS": 0,
-        "QUEUED_VIDEO_JOBS": 0,
-        "QUEUED_VOICE_TRAINING_JOBS": 0,
-        "QUEUED_IMAGE_TRAINING_JOBS": 0,
-        "QUEUED_VIDEO_TRAINING_JOBS": 0,
-        "DAILY_IMAGE_CREATIONS": 92,
-        "DAILY_COVER_CREATIONS": 0,
-        "DAILY_VIDEO_CREATIONS": 0,
-        "DAILY_IMAGE_EDITS": 0,
-        "DAILY_SONG_CREATIONS": 0,
-        "DAILY_FAST_IMAGE_TRAINING_JOBS": 0,
-        "VOYAGES_DAILY_IMAGE_CREATIONS": 0,
-        "WEEKLY_IMAGE_TRAINING_JOBS": 0,
-        "WEEKLY_VIDEO_TRAINING_JOBS": 0,
-        "VOYAGES_WEEKLY_IMAGE_TRAINING_JOBS": 0,
-        "WEEKLY_VOICE_TRAINING_JOBS": 0
-    },
-    "limits": {
-        "QUEUED_IMAGE_JOBS": 40,
-        "QUEUED_COVER_JOBS": 25,
-        "QUEUED_SONG_JOBS": 10,
-        "QUEUED_VIDEO_JOBS": 3,
-        "QUEUED_VOICE_TRAINING_JOBS": 10,
-        "QUEUED_IMAGE_TRAINING_JOBS": 15,
-        "QUEUED_VIDEO_TRAINING_JOBS": 1,
-        "DAILY_IMAGE_CREATIONS": 1500,
-        "DAILY_COVER_CREATIONS": "Infinity",
-        "DAILY_VIDEO_CREATIONS": 20,
-        "DAILY_IMAGE_EDITS": 20,
-        "DAILY_SONG_CREATIONS": 150,
-        "DAILY_FAST_IMAGE_TRAINING_JOBS": 1,
-        "WEEKLY_IMAGE_TRAINING_JOBS": 100,
-        "WEEKLY_VOICE_TRAINING_JOBS": 100,
-        "WEEKLY_VIDEO_TRAINING_JOBS": 10,
-        "CHAT_CONVERSATIONS": "Infinity",
-        "CHAT_MESSAGES": "Infinity",
-        "COVER_AUDIO_LENGTH_SECONDS": 1800,
-        "VOYAGES_DAILY_IMAGE_CREATIONS": "Infinity",
-        "VOYAGES_WEEKLY_IMAGE_TRAINING_JOBS": 3
-    },
-    "remaining": {
-        "QUEUED_IMAGE_JOBS": 40,
-        "QUEUED_COVER_JOBS": 25,
-        "QUEUED_SONG_JOBS": 10,
-        "QUEUED_VIDEO_JOBS": 3,
-        "QUEUED_VOICE_TRAINING_JOBS": 10,
-        "QUEUED_IMAGE_TRAINING_JOBS": 15,
-        "QUEUED_VIDEO_TRAINING_JOBS": 1,
-        "DAILY_IMAGE_CREATIONS": 1408,
-        "DAILY_COVER_CREATIONS": "Infinity",
-        "DAILY_VIDEO_CREATIONS": 20,
-        "DAILY_IMAGE_EDITS": 20,
-        "DAILY_SONG_CREATIONS": 150,
-        "DAILY_FAST_IMAGE_TRAINING_JOBS": 1,
-        "WEEKLY_IMAGE_TRAINING_JOBS": 100,
-        "WEEKLY_VOICE_TRAINING_JOBS": 100,
-        "WEEKLY_VIDEO_TRAINING_JOBS": 10,
-        "CHAT_CONVERSATIONS": "Infinity",
-        "CHAT_MESSAGES": "Infinity",
-        "COVER_AUDIO_LENGTH_SECONDS": 1800,
-        "VOYAGES_DAILY_IMAGE_CREATIONS": "Infinity",
-        "VOYAGES_WEEKLY_IMAGE_TRAINING_JOBS": 3
-    }
-    }
-    ```
+### 🎤 Voice Generation
+
+- `/voice`
+    - **Method**: `POST`
+    - **Request Body**:
+        ```json
+        {
+          "voiceModelName": "string",
+          "text": "string",
+          "audioUrl": "string",
+          "pitch": "string",
+          "male": "string"
+        }
+        ```
+        - `voiceModelName` (required): The name of the voice model to use.
+        - `text` (optional): The text to be converted to speech.
+        - `audioUrl` (optional): The URL of the MP3 files that will be the converted audio source.
+        - `pitch` (optional): The pitch of the converted voice, must be the string version of a number between -12 and 12.
+        - `male` (optional): The default voice tone represented by a string version of a boolean. "true" is male, "false" is female.
+        ⚠️ `text` OR `audioUrl` must be provided, but not both.
+    - **Response**:
+        ```json
+        {
+          "result": "string"
+        }
+        ```
+    - **Example Usage (fetch)**:
+        ```javascript
+        const response = await fetch("YOUR_ENDPOINT/voice", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-api-key": "YOUR_API_KEY",
+            },
+            body: JSON.stringify({
+                voiceModelName: "voice-model-name",
+                text: "Hello world",
+                pitch: "0",
+                male: "true"
+            }),
+        });
+        const {result} = await response.json();
+        console.log(result);
+        ```
 
 ## 📖 Libraries
-- [TS](https://github.com/fox3000foxy/weights.gg-api/blob/main/src/libs/weights-api.ts), [JS](https://github.com/fox3000foxy/weights.gg-api/blob/main/dist/libs/weights-api.js) and [Python](https://github.com/fox3000foxy/weights.gg-api/blob/main/weights-api.py) libraries are now availiable!
+- [TS](https://github.com/fox3000foxy/weights.gg-api/blob/main/src/libs/weights-api.ts), [JS](https://github.com/fox3000foxy/weights.gg-api/blob/main/src/libs/weights-api.js), and [Python](https://github.com/fox3000foxy/weights.gg-api/blob/main/weights-api.py) libraries are availiable too. Please use them to facilitate you.
 
 > ⚠️ DISCLAIMER – UNOFFICIAL API
 

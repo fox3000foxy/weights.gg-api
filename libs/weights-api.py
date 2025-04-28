@@ -104,6 +104,16 @@ class WeightsApi:
             response = await self.api_call('/search-loras', method='GET', body={'query': query})
             return await response.json()
         return await self.call_with_health_check(call)
+    
+    async def search_audio_models(self, query: str) -> Dict:
+        """
+        Searches for audio models.
+        """
+        async def call():
+            response = await self.api_call('/search-audio-models', method='GET', body={'query': query})
+            return await response.json()
+        return await self.call_with_health_check(call)
+
 
     async def generate_image(self, prompt: str, lora_name: Optional[str] = None) -> Dict:
         """
@@ -147,3 +157,23 @@ class WeightsApi:
             if status == 'FAILED':
                 raise Exception(f"Image generation failed: {error}")
         return status_response
+
+    async def generate_from_tts(self, voice_model_name: str, text: str, pitch: float = 0, male: bool = False) -> Dict:
+        """
+        Generates audio from text.
+        """
+        params = {'voiceModelName': voice_model_name, 'text': text, 'pitch': str(pitch), 'male': str(male).lower()}
+        async def call():
+            response = await self.api_call('/voice', method='POST', body=params)
+            return await response.json()
+        return await self.call_with_health_check(call)
+    
+    async def generate_from_audio_url(self, voice_model_name: str, audio_url: str, pitch: float = 0) -> Dict:
+        """
+        Generates audio from an audio URL.
+        """
+        params = {'voiceModelName': voice_model_name, 'audioUrl': audio_url, 'pitch': str(pitch)}
+        async def call():
+            response = await self.api_call('/voice', method='POST', body=params)
+            return await response.json()
+        return await self.call_with_health_check(call)

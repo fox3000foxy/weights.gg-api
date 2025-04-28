@@ -13,7 +13,12 @@ export class QuotaController implements interfaces.Controller {
 
   @httpGet("/", apiKeyCheck)
   public async getQuotas(_req: Request, res: Response): Promise<void> {
-    const quota = await this.directServiceApi.getQuotas();
-    res.send(quota);
+    try {
+      const quota = await this.directServiceApi.getQuotas();
+      res.send(quota);
+    } catch (error) {
+      console.error("Error in getQuotas:", error);
+      res.status(500).send({ error: "An unexpected error occurred." });
+    }
   }
 }
