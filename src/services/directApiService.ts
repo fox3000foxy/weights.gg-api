@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable prefer-const */
 import * as CryptoJS from "crypto-js";
 import { connect } from "puppeteer-real-browser";
 import type { Page } from "rebrowser-puppeteer-core";
@@ -77,6 +79,46 @@ export class SignatureCreator {
   }
 }
 
+// export class SignatureCreator {
+//   sign(e: string, t: unknown) {
+//       let r = Date.now().toString()
+//         , n = CryptoJS.lib.WordArray.random(8).toString()
+//         , i = t ? JSON.stringify(t) : ""
+//         , {ix: o, data: s} = (0,
+//       ec._)(this, ey, ex).call(this, i)
+//         , a = (0,
+//       ec._)(this, eg, eb).call(this, e, n)
+//         , l = "".concat(e, "|").concat(r, "|").concat(n, "|").concat(s);
+//       return {
+//           signature: CryptoJS.HmacSHA256(l, a).toString(CryptoJS.enc.Hex),
+//           timestamp: r,
+//           nonce: n,
+//           ix: o.toString(16)
+//       }
+//   }
+//   verify(e: { signature: any; timestamp: any; nonce: any; ix: any; }, t: string, r: any) {
+//       let {signature: n, timestamp: i, nonce: o, ix: s} = e;
+//       if (!n || !i || !o || !s || Math.abs(Date.now() - Number(i)) > 18e4)
+//           return !1;
+//       let a = parseInt(s, 16)
+//         , l = r ? JSON.stringify(r) : ""
+//         , c = ep[a](l)
+//         , u = (0,
+//       ec._)(this, eg, eb).call(this, t, o)
+//         , d = "".concat(t, "|").concat(i, "|").concat(o, "|").concat(c);
+//       return n === eh().HmacSHA256(d, u).toString(eh().enc.Hex)
+//   }
+//   constructor(e: string | undefined) {
+//       if (!e)
+//           throw Error("Secret is required");
+//       let t = new TextEncoder().encode(e);
+//       (0,el._)(this, em, []);
+//       for (let e = 0; e < t.length; e += 8)
+//           (0,es._)(this, em).push(t.slice(e, e + 8));
+//       Object.freeze((0,es._)(this, em))
+//   }
+// }
+
 @injectable()
 export class DirectApiService implements IDirectApiService {
   private signatureCreator: SignatureCreator;
@@ -90,7 +132,7 @@ export class DirectApiService implements IDirectApiService {
     @inject(TYPES.ImageService) private readonly imageService: ImageService,
   ) {
     this.signatureCreator = new SignatureCreator(
-      "j1UO381eyUAhn6Uo/PnuExzhyxR5qGOxe7b92OwTpOc",
+      "QiTQ9VZ5Gs1uxcC67u" + "etf6ffgQ8WZX2pLNOTMfoeJZ",
     );
     this.statusService = statusService;
     this.imageService = imageService;
@@ -160,7 +202,7 @@ export class DirectApiService implements IDirectApiService {
     try {
       const response = await fetch(url, {
         method: "GET",
-        headers: { ...this.headers, "x-payload-sig": signature },
+        headers: { ...this.headers, "x-weights-sig": signature },
       });
 
       const data = await response.text();
@@ -186,7 +228,7 @@ export class DirectApiService implements IDirectApiService {
         "https://www.weights.com/api/data/llm.checkStringForSafety",
         {
           method: "POST",
-          headers: { ...this.headers, "x-payload-sig": signature },
+          headers: { ...this.headers, "x-weights-sig": signature },
           body,
         },
       );
@@ -249,7 +291,7 @@ export class DirectApiService implements IDirectApiService {
         "https://www.weights.com/api/data/creations.createImageJob",
         {
           method: "POST",
-          headers: { ...this.headers, "x-payload-sig": signature },
+          headers: { ...this.headers, "x-weights-sig": signature },
           body: JSON.stringify(body),
         },
       );
@@ -279,7 +321,7 @@ export class DirectApiService implements IDirectApiService {
     try {
       const response = await fetch(url, {
         method: "GET",
-        headers: { ...this.headers, "x-payload-sig": signature },
+        headers: { ...this.headers, "x-weights-sig": signature },
       });
 
       const data = await response.text();
@@ -315,7 +357,7 @@ export class DirectApiService implements IDirectApiService {
     try {
       const response = await fetch(url, {
         method: "GET",
-        headers: { ...this.headers, "x-payload-sig": signature },
+        headers: { ...this.headers, "x-weights-sig": signature },
       });
 
       const data = await response.text();
@@ -343,7 +385,7 @@ export class DirectApiService implements IDirectApiService {
     try {
       const response = await fetch(url, {
         method: "POST",
-        headers: { ...this.headers, "x-payload-sig": signature },
+        headers: { ...this.headers, "x-weights-sig": signature },
         body: JSON.stringify(body),
       });
 
@@ -448,7 +490,7 @@ export class DirectApiService implements IDirectApiService {
         "https://www.weights.com/api/data/creations.createCoverStemOrTtsJob",
         {
           method: "POST",
-          headers: { ...this.headers, "x-payload-sig": signature },
+          headers: { ...this.headers, "x-weights-sig": signature },
           body: JSON.stringify(body),
         },
       );
@@ -471,7 +513,7 @@ export class DirectApiService implements IDirectApiService {
         "https://www.weights.com/api/data/webapp.getAudioUploadUrl",
         {
           method: "POST",
-          headers: { ...this.headers, "x-payload-sig": signature },
+          headers: { ...this.headers, "x-weights-sig": signature },
           body: JSON.stringify({ json: fileName }),
         },
       );
