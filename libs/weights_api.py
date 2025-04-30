@@ -4,12 +4,13 @@ import asyncio
 import aiohttp
 import json  # Import the json module
 from typing import Optional, Callable, Any, Dict
+from dataclasses import dataclass, field
 
+@dataclass
 class WeightsApi:
-    def __init__(self, api_key: Optional[str] = None, endpoint: Optional[str] = None):
-        self.api_key = api_key
-        self.endpoint = endpoint or os.getenv('WEIGHTS_UNOFFICIAL_ENDPOINT', 'http://localhost:3000')
-        self.session: Optional[aiohttp.ClientSession] = None
+    api_key: Optional[str] = None
+    endpoint: Optional[str] = field(default_factory=lambda: os.getenv('WEIGHTS_UNOFFICIAL_ENDPOINT', 'http://localhost:3000'))
+    session: Optional[aiohttp.ClientSession] = field(init=False, default=None)
 
     async def __aenter__(self):
         self.session = aiohttp.ClientSession()
