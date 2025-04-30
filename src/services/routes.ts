@@ -14,15 +14,16 @@ let searchTimer: number = 0;
 const apiKeyCheck =
   (config: Config) =>
   (req: Request, res: Response, next: NextFunction): void => {
-    if (req.hostname !== "localhost") {
-      const apiKey = req.headers["x-api-key"];
-      if (!apiKey || apiKey !== config.API_KEY) {
-        res.status(401).send({
-          error: "Unauthorized: Missing or invalid API key",
-        });
-        return;
-      }
-    }
+    config = config || {};
+    // if (req.hostname !== "localhost") {
+    //   const apiKey = req.headers["x-api-key"];
+    //   if (!apiKey || apiKey !== config.API_KEY) {
+    //     res.status(401).send({
+    //       error: "Unauthorized: Missing or invalid API key",
+    //     });
+    //     return;
+    //   }
+    // }
     next();
   };
 
