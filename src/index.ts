@@ -1,6 +1,5 @@
 // filepath: /weights-selenium/weights-selenium/src/index.ts
 import express from "express";
-import * as events from "events";
 import * as fs from "fs";
 import * as path from "path";
 import { Page } from "rebrowser-puppeteer-core";
@@ -16,8 +15,7 @@ import ImageProcessor from "./processors/imageProcessor";
 import LoraSearchProcessor, {
   LoraSearchJob,
 } from "./processors/loraSearchProcessor";
-import { PreviewHandler } from "./handlers/previewHandler";
-import { EVENT_TYPES, ImageGenerationResult, Job } from "./types";
+import { ImageGenerationResult, Job } from "./types";
 
 declare global {
   interface Window {
@@ -26,10 +24,10 @@ declare global {
 }
 
 // --- Services Initialization ---
-const puppeteerService = new PuppeteerService();
 const imageService = new ImageService(config);
 const loraService = new LoraService(config);
 const statusService = new StatusService();
+const puppeteerService = new PuppeteerService(imageService, statusService);
 
 // --- Queue Initialization ---
 const imageQueue = new ImageQueue(config.MAX_QUEUE_SIZE);
@@ -87,34 +85,12 @@ async function main() {
     ),
   ]);
 
-  const emitter = new events.EventEmitter();
+  const emitter = puppeteerService.emitter;
 
-  // Add event listeners
-  emitter.on(EVENT_TYPES.PREVIEW_UPDATE, (data) => {
-    return data;
-  });
-
-  emitter.on(EVENT_TYPES.STATUS_UPDATE, (data) => {
-    statusService.updateImageStatus(data.imageId, data.status, data.error);
-  });
-
-  const previewHandler = new PreviewHandler(imageService, emitter);
 
   if (!puppeteerService.generationPage) return;
   if (!puppeteerService.loraSearchPage) return;
 
-  // Expose the function directly without debounce
-  await puppeteerService.generationPage.exposeFunction(
-    "handlePreviewUpdate",
-    (data: ImageGenerationResult) => previewHandler.handlePreviewUpdate(data),
-  );
-
-  // Setup the event listener in the browser context
-  await puppeteerService.generationPage.evaluate(() => {
-    window.addEventListener("previewUpdate", (event: Event) => {
-      window.handlePreviewUpdate((event as CustomEvent).detail);
-    });
-  });
 
   imageQueue.process(processImageJob, puppeteerService.generationPage);
   loraSearchQueue.process(

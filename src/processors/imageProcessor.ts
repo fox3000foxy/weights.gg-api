@@ -18,6 +18,7 @@ interface Job {
 
 export class ImageProcessor {
   private oldLoraName: string | null = null;
+  private oldLoraPage: Page | null = null; // Track the page used for last Lora
   private retryCount = new Map<string, number>();
   private maxRetries = 3;
 
@@ -99,6 +100,12 @@ export class ImageProcessor {
   }
 
   private async handleLora(loraName: string | null, page: Page, job: Job) {
+    // If the page has changed since last Lora, reset oldLoraName and oldLoraPage
+    if (this.oldLoraPage !== page) {
+      this.oldLoraName = null;
+      this.oldLoraPage = page;
+    }
+
     if (loraName) {
       if (this.oldLoraName !== loraName) {
         if (this.oldLoraName) await this.loraService.removeLora(page);
@@ -121,10 +128,12 @@ export class ImageProcessor {
           return;
         }
         this.oldLoraName = loraName;
+        this.oldLoraPage = page;
       }
     } else if (this.oldLoraName) {
       await this.loraService.removeLora(page);
       this.oldLoraName = null;
+      this.oldLoraPage = page;
     }
   }
 

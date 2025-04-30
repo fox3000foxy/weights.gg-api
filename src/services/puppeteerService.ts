@@ -1,17 +1,65 @@
 import { connect } from "puppeteer-real-browser";
 import type { Page, Browser } from "rebrowser-puppeteer-core";
-import type { ConnectOptions } from "../types";
+import { EVENT_TYPES, type ConnectOptions, type ImageGenerationResult } from "../types";
+import config from "../config";
+import * as events from "events";
+import { PreviewHandler } from "../handlers/previewHandler";
+import ImageService from "./imageService";
+import StatusService from "./statusService";
 
 export class PuppeteerService {
   public generationPage: Page | null = null;
   public loraSearchPage: Page | null = null;
   private browser: Browser | null = null;
+  private idleTimer: NodeJS.Timeout | null = null;
+  private idleTimeoutMs = 15 * 1000; // 3 minutes
+  private headless: boolean;
+  public emitter: events.EventEmitter;
 
-  constructor() {}
+  private imageService: ImageService; // Replace with actual type if available
+  private statusService: StatusService; // Replace with actual type if available
+
+  constructor(imageService: ImageService, statusService: StatusService) {
+    this.headless = process.env.HEADLESS === "true";
+    this.imageService = imageService;
+    this.statusService = statusService;
+    this.emitter = new events.EventEmitter(); // <--- ici, une seule fois
+  }
+
+  private resetIdleTimer() {
+    console.log("Resetting idle timer.");
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = setTimeout(() => {
+      this.close().then(() => {
+        this.generationPage = null;
+        this.loraSearchPage = null;
+        this.browser = null;
+        console.log("Browser closed due to inactivity.");
+      });
+    }, this.idleTimeoutMs);
+  }
+
+  public async ensureInitialized(): Promise<void> {
+    if (!this.browser || !this.generationPage || !this.loraSearchPage) {
+      await this.initialize();
+        await Promise.all([
+          this.onStart(
+            this.generationPage as Page,
+            config.WEIGHTS_GG_COOKIE,
+          ),
+          this.onStart(
+            this.loraSearchPage as Page,
+            config.WEIGHTS_GG_COOKIE,
+          ),
+        ]);
+      // You may need to call onStart here with the cookie if needed
+    }
+    this.resetIdleTimer();
+  }
 
   public async initialize(): Promise<void> {
     const connectOptions: ConnectOptions = {
-      headless: false,
+      headless: this.headless,
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
@@ -63,6 +111,38 @@ export class PuppeteerService {
       this._setupPage(this.generationPage),
       this._setupPage(this.loraSearchPage),
     ]);
+
+    this.resetIdleTimer();
+  }
+
+  public async exposeFunctions(generationPage: Page): Promise<void> {
+    console.log("Exposing functions to the page.");
+
+    // N'ajoute les listeners qu'une seule fois (évite les doublons)
+    if (this.emitter.listenerCount(EVENT_TYPES.PREVIEW_UPDATE) === 0) {
+      this.emitter.on(EVENT_TYPES.PREVIEW_UPDATE, (data) => data);
+    }
+    if (this.emitter.listenerCount(EVENT_TYPES.STATUS_UPDATE) === 0) {
+      this.emitter.on(EVENT_TYPES.STATUS_UPDATE, (data) => {
+        this.resetIdleTimer();
+        if (!this.statusService) throw new Error("Status service not initialized.");
+        this.statusService.updateImageStatus(data.imageId, data.status, data.error);
+      });
+    }
+
+    const previewHandler = new PreviewHandler(this.imageService, this.emitter);
+
+    await generationPage.exposeFunction(
+      "handlePreviewUpdate",
+      (data: ImageGenerationResult) => previewHandler.handlePreviewUpdate(data),
+    );
+    console.log("Functions exposed to the page.");
+
+    await generationPage.evaluate(() => {
+      window.addEventListener("previewUpdate", (event: Event) => {
+        window.handlePreviewUpdate((event as CustomEvent).detail);
+      });
+    });
   }
 
   private async _setupPage(page: Page): Promise<void> {
@@ -117,6 +197,8 @@ export class PuppeteerService {
         return false;
       });
 
+      await this.exposeFunctions(page);
+
       if (!success) {
         console.warn("Button not found or click failed");
       }
@@ -163,6 +245,13 @@ export class PuppeteerService {
       await this.browser?.close();
     } catch (err) {
       console.warn("Error while closing browser:", err);
+    }
+    this.browser = null;
+    this.generationPage = null;
+    this.loraSearchPage = null;
+    if (this.idleTimer) {
+      clearTimeout(this.idleTimer);
+      this.idleTimer = null;
     }
   }
 }
