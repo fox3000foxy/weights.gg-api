@@ -75,7 +75,7 @@ Generated images expire after 10 minutes. Download promptly!
     - **Response**: Plain text quota details.
 
 ## 📖 Libraries
-- [TS](https://github.com/fox3000foxy/weights.gg-api/blob/main/libs/weights-api.ts), [JS](https://github.com/fox3000foxy/weights.gg-api/blob/main/libs/weights-api.js), and [Python](https://github.com/fox3000foxy/weights.gg-api/blob/main/libs/weights_api.py) libraries are availiable too. Please use them for easy access to the unofficial Weights.gg API.
+- [TS](libs/weights-api.ts), [JS](libs/weights-api.js), and [Python](libs/weights_api.py) libraries are availiable too. Please use them for easy access to the unofficial Weights.gg API.
 - For installing the Python module in your env, simply navigate to `libs` and use `pip install .` to install it.
 
 > ⚠️ DISCLAIMER – UNOFFICIAL API
