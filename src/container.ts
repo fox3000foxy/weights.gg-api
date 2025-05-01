@@ -1,13 +1,15 @@
 import { Container } from "inversify";
-import { TYPES } from "./types";
+
 import config from "./config";
-import { ImageService, IImageService } from "./services/imageService";
-import { ImageProcessor, IImageProcessor } from "./processors/imageProcessor";
-import PuppeteerService, { IPuppeteerService } from "./services/puppeteerService";
+import { TYPES } from "./types";
+
+import { IImageService, ImageService } from "./services/imageService";
+import { IPuppeteerService, PuppeteerService } from "./services/puppeteerService";
 import LoraService, { ILoraService } from "./services/loraService";
 import StatusService, { IStatusService } from "./services/statusService";
-import { ImageQueue, SearchQueue, IImageQueue, ISearchQueue } from "./services/queueService";
-import LoraSearchProcessor, { ILoraSearchProcessor } from "./processors/loraSearchProcessor";
+import { IImageQueue, ISearchQueue, ImageQueue, SearchQueue } from "./services/queueService";
+import { IImageProcessor, ImageProcessor } from "./processors/imageProcessor";
+import { ILoraSearchProcessor, LoraSearchProcessor } from "./processors/loraSearchProcessor";
 
 const container = new Container();
 
@@ -28,7 +30,6 @@ container.bind<ISearchQueue>(TYPES.SearchQueue).toDynamicValue(() =>
     new SearchQueue(config.MAX_QUEUE_SIZE)
 ).inSingletonScope();
 container.bind<IImageProcessor>(TYPES.ImageProcessor).to(ImageProcessor).inSingletonScope();
-container.bind<ILoraSearchProcessor>(TYPES.LoraSearchProcessor).toDynamicValue(ctx =>
-    new LoraSearchProcessor(ctx.container.get(TYPES.LoraService))
-).inSingletonScope();
+container.bind<ILoraSearchProcessor>(TYPES.LoraSearchProcessor).to(LoraSearchProcessor).inSingletonScope();
+// container.bind<IPuppeteerService>(TYPES.PuppeteerService).to(PuppeteerService).inSingletonScope();
 export default container;

@@ -5,7 +5,8 @@ import { injectable, inject } from "inversify";
 import { TYPES } from "../types";
 
 export interface ILoraSearchProcessor {
-  processLoraSearch(job: LoraSearchJob, loraSearchPage: Page): Promise<void>;
+  processLoraSearch(job: LoraSearchJob, page: Page): Promise<void>;
+  // Ajoute ici toutes les autres méthodes que tu as implémentées
 }
 
 @injectable()
@@ -17,13 +18,6 @@ export class LoraSearchProcessor implements ILoraSearchProcessor {
   async processLoraSearch(job: LoraSearchJob, loraSearchPage: Page) {
     const { query, res } = job;
     try {
-      if (this.loraService.loraSearchCache.has(query)) {
-        console.log(`Using cached result for Lora search: ${query}`);
-        const cachedResult = this.loraService.loraSearchCache.get(query);
-        res.send(cachedResult);
-        return;
-      }
-
       const searchResult = await this.performLoraSearch(query, loraSearchPage);
       res.send(searchResult);
     } catch (error) {

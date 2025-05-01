@@ -191,6 +191,3 @@ export class ImageProcessor implements IImageProcessor {
     );
   }
 }
-
-module.exports = ImageProcessor;
-export default ImageProcessor;

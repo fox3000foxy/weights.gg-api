@@ -1,10 +1,9 @@
 import { EventEmitter } from "events";
-import { injectable, inject } from "inversify";
+import { inject } from "inversify";
 import { TYPES } from "../types";
 import { IImageService } from "../services/imageService";
 import { EVENT_TYPES, ImageGenerationResult } from "../types";
 
-@injectable()
 export class PreviewHandler {
   constructor(
     @inject(TYPES.ImageService) private imageService: IImageService,
