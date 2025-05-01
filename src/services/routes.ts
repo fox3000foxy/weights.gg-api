@@ -5,25 +5,23 @@ import { PuppeteerService } from "./puppeteerService";
 import { ImageService } from "./imageService";
 import { StatusService } from "./statusService";
 import { ImageQueue, SearchQueue } from "./queueService";
-import { Page } from "rebrowser-puppeteer-core";
 import { GenerateImageJob } from "../types";
 
 let generateTimer: number = 0;
-let searchTimer: number = 0;
 
 const apiKeyCheck =
   (config: Config) =>
   (req: Request, res: Response, next: NextFunction): void => {
     config = config || {};
-    // if (req.hostname !== "localhost") {
-    //   const apiKey = req.headers["x-api-key"];
-    //   if (!apiKey || apiKey !== config.API_KEY) {
-    //     res.status(401).send({
-    //       error: "Unauthorized: Missing or invalid API key",
-    //     });
-    //     return;
-    //   }
-    // }
+    if (req.hostname !== "localhost") {
+      const apiKey = req.headers["x-api-key"];
+      if (!apiKey || apiKey !== config.API_KEY) {
+        res.status(401).send({
+          error: "Unauthorized: Missing or invalid API key",
+        });
+        return;
+      }
+    }
     next();
   };
 
@@ -43,22 +41,9 @@ const statusRoute =
 const searchLoraRoute =
   (
     loraSearchQueue: SearchQueue,
-    imageService: ImageService,
-    puppeteerService: PuppeteerService,
+    imageService: ImageService
   ) =>
   async (req: Request, res: Response) => {
-    await puppeteerService.ensureInitialized();
-
-    if (!searchTimer) {
-      searchTimer = 100;
-    } else {
-      while (searchTimer < 0) {
-        searchTimer--;
-        searchLoraRoute(loraSearchQueue, imageService, puppeteerService);
-        return;
-      }
-    }
-
     const { query } = req.query;
     if (!query || typeof query !== "string") {
       res.status(400).send({
@@ -79,8 +64,7 @@ const searchLoraRoute =
         data: {
           query: loraName,
         },
-      },
-      puppeteerService.loraSearchPage as Page,
+      }
     );
   };
 
@@ -195,8 +179,6 @@ const generateImageRoute =
         statusUrl: `${config.API_URL}/status/${imageId}`,
       });
     } else {
-      
-      await puppeteerService.ensureInitialized();
       const job: GenerateImageJob = {
         prompt: prompt as string,
         loraName: typeof loraName === "string" ? loraName : null,
@@ -212,8 +194,7 @@ const generateImageRoute =
           data: {
             prompt,
           },
-        },
-        puppeteerService.generationPage as Page,
+        }
       );
       res.send({
         success: true,
@@ -226,9 +207,9 @@ const generateImageRoute =
 const quotaRoute =
   (puppeteerService: PuppeteerService) =>
   async (_req: Request, res: Response) => {
-    await puppeteerService.ensureInitialized();
+    const generationPage = await puppeteerService.getGenerationPageReady();
 
-    const quota = await puppeteerService.getGenerationPage()?.evaluate(async () => {
+    const quota = await generationPage.evaluate(async () => {
       const sleepBrowser = (ms: number) =>
         new Promise((r) => setTimeout(r, ms));
 
@@ -266,7 +247,7 @@ export const setupRoutes = (
   app.get("/status/:imageId", statusRoute(statusService));
   app.get(
     "/search-loras",
-    searchLoraRoute(loraSearchQueue, imageService, puppeteerService),
+    searchLoraRoute(loraSearchQueue, imageService),
   );
   app.get(
     "/generateImage",

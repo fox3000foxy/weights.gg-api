@@ -1,63 +1,103 @@
 import { connect } from "puppeteer-real-browser";
 import type { Page, Browser } from "rebrowser-puppeteer-core";
 import { EVENT_TYPES, type ConnectOptions, type ImageGenerationResult } from "../types";
+
+declare global {
+  interface Window {
+    handlePreviewUpdate: (data: ImageGenerationResult) => void;
+  }
+}
 import config from "../config";
 import * as events from "events";
 import { PreviewHandler } from "../handlers/previewHandler";
 import ImageService from "./imageService";
 import StatusService from "./statusService";
 
+export type PageType = "generation" | "loraSearch";
+
+interface PageContext {
+  page: Page | null;
+  idleTimer: NodeJS.Timeout | null;
+  lastUsed: number;
+}
+
 export class PuppeteerService {
-  public generationPage: Page | null = null;
-  public loraSearchPage: Page | null = null;
   private browser: Browser | null = null;
-  private idleTimer: NodeJS.Timeout | null = null;
-  private idleTimeoutMs = 15 * 1000; // 3 minutes
+  private idleTimeoutMs = 15 * 1000; // 15 seconds idle timeout
   private headless: boolean;
   public emitter: events.EventEmitter;
 
-  private imageService: ImageService; // Replace with actual type if available
-  private statusService: StatusService; // Replace with actual type if available
+  private pageContexts: Record<PageType, PageContext> = {
+    generation: { page: null, idleTimer: null, lastUsed: 0 },
+    loraSearch: { page: null, idleTimer: null, lastUsed: 0 },
+  };
+
+  private imageService: ImageService;
+  private statusService: StatusService;
 
   constructor(imageService: ImageService, statusService: StatusService) {
     this.headless = process.env.HEADLESS === "true";
     this.imageService = imageService;
     this.statusService = statusService;
-    this.emitter = new events.EventEmitter(); // <--- ici, une seule fois
+    this.emitter = new events.EventEmitter();
   }
 
-  private resetIdleTimer() {
-    console.log("Resetting idle timer.");
-    if (this.idleTimer) clearTimeout(this.idleTimer);
-    this.idleTimer = setTimeout(() => {
-      this.close().then(() => {
-        this.generationPage = null;
-        this.loraSearchPage = null;
-        this.browser = null;
-        console.log("Browser closed due to inactivity.");
+  // Getters that maintain backward compatibility
+  public get generationPage(): Page | null {
+    return this.pageContexts.generation.page;
+  }
+
+  public set generationPage(page: Page | null) {
+    this.pageContexts.generation.page = page;
+  }
+
+  public get loraSearchPage(): Page | null {
+    return this.pageContexts.loraSearch.page;
+  }
+
+  public set loraSearchPage(page: Page | null) {
+    this.pageContexts.loraSearch.page = page;
+  }
+
+  private resetIdleTimer(pageType: PageType) {
+    console.log(`Resetting idle timer for ${pageType} page.`);
+    const context = this.pageContexts[pageType];
+    
+    if (context.idleTimer) {
+      clearTimeout(context.idleTimer);
+    }
+    
+    context.lastUsed = Date.now();
+    context.idleTimer = setTimeout(() => {
+      this.closePage(pageType).then(() => {
+        console.log(`${pageType} page closed due to inactivity.`);
       });
     }, this.idleTimeoutMs);
   }
 
-  public async ensureInitialized(): Promise<void> {
-    if (!this.browser || !this.generationPage || !this.loraSearchPage) {
-      await this.initialize();
-        await Promise.all([
-          this.onStart(
-            this.generationPage as Page,
-            config.WEIGHTS_GG_COOKIE,
-          ),
-          this.onStart(
-            this.loraSearchPage as Page,
-            config.WEIGHTS_GG_COOKIE,
-          ),
-        ]);
-      // You may need to call onStart here with the cookie if needed
+  /**
+   * Ensures a specific page type is initialized
+   */
+  public async ensurePageInitialized(pageType: PageType): Promise<Page> {
+    const context = this.pageContexts[pageType];
+    
+    if (!this.browser) {
+      await this.initializeBrowser();
     }
-    this.resetIdleTimer();
+    
+    if (!context.page) {
+      await this.initializePage(pageType);
+      await this.onStart(this.pageContexts[pageType].page as Page, config.WEIGHTS_GG_COOKIE);
+    }
+    
+    this.resetIdleTimer(pageType);
+    return context.page as Page;
   }
 
-  public async initialize(): Promise<void> {
+  /**
+   * Initializes the browser without creating any pages
+   */
+  private async initializeBrowser(): Promise<void> {
     const connectOptions: ConnectOptions = {
       headless: this.headless,
       args: [
@@ -86,8 +126,8 @@ export class PuppeteerService {
         "--disable-composited-antialiasing",
       ],
       customConfig: {
-        targetCPU: 30, // Limite l'utilisation CPU
-        maxConcurrency: 2, // Limite le nombre d'opérations concurrentes
+        targetCPU: 30,
+        maxConcurrency: 2,
       },
       turnstile: true,
       connectOption: {},
@@ -97,22 +137,58 @@ export class PuppeteerService {
 
     const { browser } = await connect(connectOptions);
     this.browser = browser;
+  }
+  
+  /**
+   * Initializes a specific page type
+   */
+  private async initializePage(pageType: PageType): Promise<void> {
+    if (!this.browser) {
+      throw new Error("Browser not initialized");
+    }
+    
+    const context = pageType === "generation" 
+      ? await this.browser.createBrowserContext()
+      : await this.browser.defaultBrowserContext();
+      
+    const page = await context.newPage();
+    await this._setupPage(page);
+    
+    this.pageContexts[pageType].page = page;
+    this.resetIdleTimer(pageType);
+  }
 
-    // Créer deux contextes isolés
-    const loraContext = await browser.defaultBrowserContext();
-    const generationContext = await browser.createBrowserContext();
-
-    // Créer les pages dans leurs contextes respectifs
-    this.loraSearchPage = await loraContext.newPage();
-    this.generationPage = await generationContext.newPage();
-
-    // Configurer les pages
+  // For backward compatibility
+  public async initialize(): Promise<void> {
+    if (!this.browser) {
+      await this.initializeBrowser();
+    }
+    
+    // Initialize both pages if they're not already initialized
+    if (!this.pageContexts.generation.page) {
+      await this.initializePage("generation");
+    }
+    
+    if (!this.pageContexts.loraSearch.page) {
+      await this.initializePage("loraSearch");
+    }
+    
+    // Start both pages
     await Promise.all([
-      this._setupPage(this.generationPage),
-      this._setupPage(this.loraSearchPage),
+      this.onStart(this.generationPage as Page, config.WEIGHTS_GG_COOKIE),
+      this.onStart(this.loraSearchPage as Page, config.WEIGHTS_GG_COOKIE),
     ]);
+  }
 
-    this.resetIdleTimer();
+  // For backward compatibility
+  public async ensureInitialized(): Promise<void> {
+    if (!this.browser || !this.generationPage || !this.loraSearchPage) {
+      await this.initialize();
+    }
+    
+    // Reset both timers
+    this.resetIdleTimer("generation");
+    this.resetIdleTimer("loraSearch");
   }
 
   public async exposeFunctions(generationPage: Page): Promise<void> {
@@ -124,7 +200,8 @@ export class PuppeteerService {
     }
     if (this.emitter.listenerCount(EVENT_TYPES.STATUS_UPDATE) === 0) {
       this.emitter.on(EVENT_TYPES.STATUS_UPDATE, (data) => {
-        this.resetIdleTimer();
+        // Reset the timer for the generation page when we get a status update
+        this.resetIdleTimer("generation");
         if (!this.statusService) throw new Error("Status service not initialized.");
         this.statusService.updateImageStatus(data.imageId, data.status, data.error);
       });
@@ -211,20 +288,31 @@ export class PuppeteerService {
   public async restartPage(oldPage: Page): Promise<Page> {
     if (!this.browser) throw new Error("Browser not initialized.");
 
+    // Determine which page type is being restarted
+    let pageType: PageType | null = null;
+    
+    if (oldPage === this.pageContexts.generation.page) {
+      pageType = "generation";
+    } else if (oldPage === this.pageContexts.loraSearch.page) {
+      pageType = "loraSearch";
+    }
+    
+    if (!pageType) {
+      throw new Error("Unidentified page cannot be restarted");
+    }
+
     try {
       const context = await this.browser.createBrowserContext();
       const newPage = await context.newPage();
-
       await this._setupPage(newPage);
 
-      if (oldPage === this.loraSearchPage) {
-        await oldPage.browserContext().close();
-        this.loraSearchPage = newPage;
-      } else if (oldPage === this.generationPage) {
-        await oldPage.browserContext().close();
-        this.generationPage = newPage;
-      }
-
+      // Close old page context
+      await oldPage.browserContext().close();
+      
+      // Update the page reference
+      this.pageContexts[pageType].page = newPage;
+      this.resetIdleTimer(pageType);
+      
       return newPage;
     } catch (err) {
       console.error("Failed to restart the page:", err);
@@ -232,27 +320,69 @@ export class PuppeteerService {
     }
   }
 
-  public getGenerationPage(): Page | null {
-    return this.generationPage;
+  /**
+   * Close a specific page type
+   */
+  public async closePage(pageType: PageType): Promise<void> {
+    const context = this.pageContexts[pageType];
+    
+    if (context.page) {
+      try {
+        await context.page.browserContext()?.close();
+      } catch (err) {
+        await err;
+        // console.warn(`Error closing ${pageType} page:`, err);
+      }
+      
+      context.page = null;
+    }
+    
+
+    
+    if (context.idleTimer) {
+      clearTimeout(context.idleTimer);
+      context.idleTimer = null;
+    }
+    
+    // If all pages are closed, close the browser too
+    if (!this.pageContexts.generation.page && !this.pageContexts.loraSearch.page) {
+      await this.closeBrowser();
+    }
+  }
+  
+  /**
+   * Close the browser
+   */
+  private async closeBrowser(): Promise<void> {
+    if (this.browser) {
+      try {
+        await this.browser.close();
+      } catch (err) {
+        console.warn("Error closing browser:", err);
+      }
+      
+      this.browser = null;
+    }
   }
 
-  public getLoraSearchPage(): Page | null {
-    return this.loraSearchPage;
-  }
-
+  // Legacy method for backward compatibility
   public async close(): Promise<void> {
-    try {
-      await this.browser?.close();
-    } catch (err) {
-      console.warn("Error while closing browser:", err);
-    }
-    this.browser = null;
-    this.generationPage = null;
-    this.loraSearchPage = null;
-    if (this.idleTimer) {
-      clearTimeout(this.idleTimer);
-      this.idleTimer = null;
-    }
+    // Close both page types
+    await Promise.all([
+      this.closePage("generation"),
+      this.closePage("loraSearch"),
+    ]);
+    
+    // Browser will be closed by closePage if all pages are closed
+  }
+  
+  // Helpers for specific page types
+  public async getGenerationPageReady(): Promise<Page> {
+    return this.ensurePageInitialized("generation");
+  }
+  
+  public async getLoraSearchPageReady(): Promise<Page> {
+    return this.ensurePageInitialized("loraSearch");
   }
 }
 

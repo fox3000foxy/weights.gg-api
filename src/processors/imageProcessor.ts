@@ -122,9 +122,8 @@ export class ImageProcessor {
                 imageId: job.imageId,
                 emitter: job.emitter,
               },
-            },
-            page,
-          ); // Re-add the job to the front of the queue
+            }
+          ); // Re-add the job to the front of the queue (sans page)
           return;
         }
         this.oldLoraName = loraName;

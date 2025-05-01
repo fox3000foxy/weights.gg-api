@@ -2,7 +2,6 @@
 import express from "express";
 import * as fs from "fs";
 import * as path from "path";
-import { Page } from "rebrowser-puppeteer-core";
 
 import config from "./config";
 import PuppeteerService from "./services/puppeteerService";
@@ -52,14 +51,14 @@ const imageProcessor = new ImageProcessor(
 const loraSearchProcessor = new LoraSearchProcessor(loraService);
 
 // --- Queue Processors ---
-const processImageJob = async (job: Job, generationPage: Page) => {
+// On récupère la page à la demande, juste avant le traitement
+const processImageJob = async (job: Job) => {
+  const generationPage = await puppeteerService.getGenerationPageReady();
   await imageProcessor.processImage(job, generationPage);
 };
 
-const processLoraSearchJob = async (
-  job: LoraSearchJob,
-  loraSearchPage: Page,
-) => {
+const processLoraSearchJob = async (job: LoraSearchJob) => {
+  const loraSearchPage = await puppeteerService.getLoraSearchPageReady();
   await loraSearchProcessor.processLoraSearch(job, loraSearchPage);
 };
 
@@ -73,30 +72,14 @@ async function main() {
     );
   }
 
-  await puppeteerService.initialize();
-  await Promise.all([
-    puppeteerService.onStart(
-      puppeteerService.generationPage as Page,
-      config.WEIGHTS_GG_COOKIE,
-    ),
-    puppeteerService.onStart(
-      puppeteerService.loraSearchPage as Page,
-      config.WEIGHTS_GG_COOKIE,
-    ),
-  ]);
+  // Plus besoin d'initialiser puppeteerService ici
 
   const emitter = puppeteerService.emitter;
 
+  // Les pages sont récupérées à la demande dans les jobs, donc plus besoin de vérifier ici
 
-  if (!puppeteerService.generationPage) return;
-  if (!puppeteerService.loraSearchPage) return;
-
-
-  imageQueue.process(processImageJob, puppeteerService.generationPage);
-  loraSearchQueue.process(
-    processLoraSearchJob,
-    puppeteerService.loraSearchPage,
-  );
+  imageQueue.process(processImageJob);
+  loraSearchQueue.process(processLoraSearchJob);
 
   setupRoutes(
     app,
