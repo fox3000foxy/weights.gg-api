@@ -16,7 +16,7 @@ import express from "express";
 import "./controllers/ImageController";
 import "./controllers/LoraController";
 import "./controllers/StatusController";
-import "./controllers/LoraController";
+import "./controllers/HealthController";
 import "./controllers/QuotaController";
 
 const server = new InversifyExpressServer(container);
