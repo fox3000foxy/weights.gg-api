@@ -27,9 +27,36 @@ export class LoraService implements ILoraService {
     this.loadLoraCache();
   }
 
+  // Helper function for browser evaluation
+  private async browserEvaluate<T>(page: Page, fn: () => T): Promise<T> {
+    return page.evaluate(fn);
+  }
+
+  // Helper function to wait for and query a selector in the browser
+  private async waitForAndQuerySelector(
+    page: Page,
+    selector: string,
+    timeout: number = 5000,
+  ): Promise<Element | null> {
+    const sleepBrowser = (ms: number) =>
+      new Promise((r) => setTimeout(r, ms));
+    const startTime = Date.now();
+
+    while (!await this.browserEvaluate(page, () => document.querySelector(selector))) {
+      if (Date.now() - startTime > timeout) {
+        return null;
+      }
+      console.log(`${selector} not loaded yet, waiting...`);
+      await sleepBrowser(10);
+    }
+
+    return this.browserEvaluate(page, () => document.querySelector(selector));
+  }
+
   public async addLora(loraName: string, page: Page): Promise<boolean> {
     try {
-      await page.evaluate(async () => {
+      // Click the Lora button
+      await this.browserEvaluate(page, async () => {
         const sleepBrowser = (ms: number) =>
           new Promise((r) => setTimeout(r, ms));
 
@@ -55,38 +82,21 @@ export class LoraService implements ILoraService {
 
       console.log("Element focused");
 
+      // Enter the Lora name
       await page.type('[id^="«r"]', decodeURIComponent(loraName));
       await page.keyboard.press("Enter");
 
       console.log("Lora name entered");
 
-      const loraFound = await page.evaluate(async () => {
-        const sleepBrowser = (ms: number) =>
-          new Promise((r) => setTimeout(r, ms));
-
-        async function waitForAndQuerySelector(
-          selector: string,
-          timeout = 5000,
-        ): Promise<Element | null> {
-          const startTime = Date.now();
-          while (!document.querySelector(selector)) {
-            if (Date.now() - startTime > timeout) {
-              return null;
-            }
-            console.log(`${selector} not loaded yet, waiting...`);
-            await sleepBrowser(10);
-          }
-          return document.querySelector(selector);
-        }
-
-        const loraSelection = await waitForAndQuerySelector(
-          "div.flex.outline-none.flex-col.items-center.gap-4.w-full.md\\:w-\\[400px\\].min-h-\\[200px\\].absolute.bottom-0.md\\:bottom-auto.md\\:top-1\\/2.md\\:left-1\\/2.md\\:-translate-x-1\\/2.md\\:-translate-y-1\\/2.px-6.py-6.rounded-t-3xl.md\\:rounded-3xl.shadow-lg.bg-white.dark\\:bg-neutral-800.max-h-screen.overflow-y-auto.overflow-x-hidden.pb-\\[var\\(--is-mobile-pb\\)\\].md\\:pb-\\[var\\(--is-mobile-pb-md\\)\\] > div > div.h-96.w-full.overflow-hidden.rounded-2xl.bg-gray-100.dark\\:bg-neutral-900 > div > div > div:nth-child(2) > div > div > div",
-          5000,
-        );
-
-        if (loraSelection) {
-          (loraSelection as HTMLElement).click();
-          await waitForAndQuerySelector("#imagegen-input");
+      // Check if the Lora was found and select it
+      const loraFound = await this.waitForAndQuerySelector(
+        page,
+        "div.flex.outline-none.flex-col.items-center.gap-4.w-full.md\\:w-\\[400px\\].min-h-\\[200px\\].absolute.bottom-0.md\\:bottom-auto.md\\:top-1\\/2.md\\:left-1\\/2.md\\:-translate-x-1\\/2.md\\:-translate-y-1\\/2.px-6.py-6.rounded-t-3xl.md\\:rounded-3xl.shadow-lg.bg-white.dark\\:bg-neutral-800.max-h-screen.overflow-y-auto.overflow-x-hidden.pb-\\[var\\(--is-mobile-pb\\)\\].md\\:pb-\\[var\\(--is-mobile-pb-md\\)\\] > div > div.h-96.w-full.overflow-hidden.rounded-2xl.bg-gray-100.dark\\:bg-neutral-900 > div > div > div:nth-child(2) > div > div > div",
+        5000,
+      ).then(element => {
+        if (element) {
+          (element as HTMLElement).click();
+          this.waitForAndQuerySelector(page, "#imagegen-input");
           return true;
         }
         return false;
@@ -101,12 +111,13 @@ export class LoraService implements ILoraService {
       }
     } catch (error) {
       console.error("Error adding Lora:", error);
+      return false;
     }
     return true;
   }
 
   public async removeLora(page: Page): Promise<void> {
-    await page.evaluate(() => {
+    await this.browserEvaluate(page, () => {
       const button = document.querySelector(
         "div.-mb-2.-mt-4.flex.w-full > div > a > button",
       );
@@ -120,7 +131,8 @@ export class LoraService implements ILoraService {
     loraName: string,
     page: Page,
   ): Promise<LoraResult[]> {
-    await page.evaluate(async () => {
+    // Open the Lora selection
+    await this.browserEvaluate(page, async () => {
       const sleepBrowser = (ms: number) =>
         new Promise((r) => setTimeout(r, ms));
       const loraButton = document.querySelector(
@@ -141,10 +153,12 @@ export class LoraService implements ILoraService {
       await waitForAndQuerySelector('[id^="«r"]');
     });
 
+    // Enter the Lora name and press Enter
     await page.type('[id^="«r"]', decodeURIComponent(loraName));
     await page.keyboard.press("Enter");
 
-    const loraList = await page.evaluate(async () => {
+    // Extract the list of Loras
+    const loraList = await this.browserEvaluate(page, async () => {
       const sleepBrowser = (ms: number) =>
         new Promise((r) => setTimeout(r, ms));
       while (

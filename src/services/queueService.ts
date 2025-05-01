@@ -19,17 +19,12 @@ export type ISearchQueue = IQueue<LoraSearchJob>
 
 @injectable()
 export class Queue<T> extends EventEmitter {
-  private queue: QueueItem<T>[];
-  private maxSize: number;
-  private processing: boolean;
-  private processor: ((job: T) => Promise<void>) | null;
+  private queue: QueueItem<T>[] = [];
+  private processing: boolean = false;
+  private processor: ((job: T) => Promise<void>) | null = null;
 
-  constructor(maxSize: number = 10) {
+  constructor(private maxSize: number = 10) {
     super();
-    this.queue = [];
-    this.maxSize = maxSize;
-    this.processing = false;
-    this.processor = null;
   }
 
   public enqueue(item: QueueItem<T>): void {
@@ -77,7 +72,6 @@ export class Queue<T> extends EventEmitter {
     }
   }
 
-  // Additional methods
   public clear(): void {
     this.queue = [];
   }

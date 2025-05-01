@@ -6,16 +6,17 @@ import { TYPES } from "../types";
 
 export interface ILoraSearchProcessor {
   processLoraSearch(job: LoraSearchJob, page: Page): Promise<void>;
-  // Ajoute ici toutes les autres méthodes que tu as implémentées
 }
 
 @injectable()
 export class LoraSearchProcessor implements ILoraSearchProcessor {
+  private readonly searchTimeoutMs = 5000;
+
   constructor(
     @inject(TYPES.LoraService) private loraService: ILoraService
   ) {}
 
-  async processLoraSearch(job: LoraSearchJob, loraSearchPage: Page) {
+  async processLoraSearch(job: LoraSearchJob, loraSearchPage: Page): Promise<void> {
     const { query, res } = job;
     try {
       const searchResult = await this.performLoraSearch(query, loraSearchPage);
@@ -26,31 +27,36 @@ export class LoraSearchProcessor implements ILoraSearchProcessor {
     }
   }
 
-  private async performLoraSearch(query: string, loraSearchPage: Page) {
-    let timeoutId: NodeJS.Timeout | null = null;
-    const timeoutPromise = new Promise<unknown>((_, reject) => {
-      timeoutId = setTimeout(() => {
-        reject(new Error("Lora search timed out"));
-      }, 5000); // 5 seconds timeout
-    });
-
+  private async performLoraSearch(query: string, loraSearchPage: Page): Promise<LoraResult[]> {
     try {
       const result = await Promise.race([
         this.loraService.searchLoras(query, loraSearchPage),
-        timeoutPromise,
+        this.createTimeoutPromise(this.searchTimeoutMs),
       ]);
 
-      if ((result as unknown[])?.length !== 0) {
-        this.loraService.loraSearchCache.set(query, result as LoraResult[]);
-        this.loraService.saveLoraCache();
+      const loraResults = result as LoraResult[];
+      if (loraResults?.length !== 0) {
+        this.cacheLoraResults(query, loraResults);
       }
 
-      if (timeoutId) clearTimeout(timeoutId);
-      return result;
+      return loraResults;
     } catch (error) {
-      if (timeoutId) clearTimeout(timeoutId);
+      console.error(`Lora search failed for query "${query}":`, error);
       throw error;
     }
+  }
+
+  private createTimeoutPromise(timeoutMs: number): Promise<never> {
+    return new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error("Lora search timed out"));
+      }, timeoutMs);
+    });
+  }
+
+  private cacheLoraResults(query: string, results: LoraResult[]): void {
+    this.loraService.loraSearchCache.set(query, results);
+    this.loraService.saveLoraCache();
   }
 }
 
