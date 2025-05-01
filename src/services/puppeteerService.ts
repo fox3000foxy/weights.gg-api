@@ -1,27 +1,44 @@
 import { connect } from "puppeteer-real-browser";
 import type { Page, Browser } from "rebrowser-puppeteer-core";
-import { EVENT_TYPES, type ConnectOptions, type ImageGenerationResult } from "../types";
+import { EVENT_TYPES, TYPES, type ConnectOptions, type ImageGenerationResult } from "../types";
+import config from "../config";
+import * as events from "events";
+import { PreviewHandler } from "../handlers/previewHandler";
+import { IImageService } from "./imageService";
+import { IStatusService } from "./statusService";
+import { inject, injectable } from "inversify";
 
 declare global {
   interface Window {
     handlePreviewUpdate: (data: ImageGenerationResult) => void;
   }
 }
-import config from "../config";
-import * as events from "events";
-import { PreviewHandler } from "../handlers/previewHandler";
-import ImageService from "./imageService";
-import StatusService from "./statusService";
 
 export type PageType = "generation" | "loraSearch";
-
 interface PageContext {
   page: Page | null;
   idleTimer: NodeJS.Timeout | null;
   lastUsed: number;
 }
 
-export class PuppeteerService {
+export interface IPuppeteerService {
+  generationPage: Page | null;
+  loraSearchPage: Page | null;
+  emitter: events.EventEmitter;
+  ensurePageInitialized(pageType: PageType): Promise<Page>;
+  initialize(): Promise<void>;
+  ensureInitialized(): Promise<void>;
+  exposeFunctions(generationPage: Page): Promise<void>;
+  onStart(page: Page, cookie: string): Promise<void>;
+  restartPage(oldPage: Page): Promise<Page>;
+  closePage(pageType: PageType): Promise<void>;
+  close(): Promise<void>;
+  getGenerationPageReady(): Promise<Page>;
+  getLoraSearchPageReady(): Promise<Page>;
+}
+
+@injectable()
+export class PuppeteerService implements IPuppeteerService {
   private browser: Browser | null = null;
   private idleTimeoutMs = 15 * 1000; // 15 seconds idle timeout
   private headless: boolean;
@@ -32,10 +49,13 @@ export class PuppeteerService {
     loraSearch: { page: null, idleTimer: null, lastUsed: 0 },
   };
 
-  private imageService: ImageService;
-  private statusService: StatusService;
+  private imageService: IImageService;
+  private statusService: IStatusService;
 
-  constructor(imageService: ImageService, statusService: StatusService) {
+  constructor(
+    @inject(TYPES.ImageService) imageService: IImageService,
+    @inject(TYPES.StatusService) statusService: IStatusService
+  ) {
     this.headless = process.env.HEADLESS === "true";
     this.imageService = imageService;
     this.statusService = statusService;

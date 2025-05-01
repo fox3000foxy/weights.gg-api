@@ -2,12 +2,26 @@ import * as fs from "fs";
 import { Page } from "rebrowser-puppeteer-core";
 import { Config } from "../config";
 import { LoraResult } from "types";
+import { injectable, inject } from "inversify";
+import { TYPES } from "../types";
 
-export class LoraService {
+export interface ILoraService {
+  addLora(loraName: string, page: Page): Promise<boolean>;
+  removeLora(page: Page): Promise<void>;
+  searchLoras(loraName: string, page: Page): Promise<LoraResult[]>;
+  saveLoraCache(): void;
+  config: Config;
+  loraSearchCache: Map<string, LoraResult[]>;
+}
+
+@injectable()
+export class LoraService implements ILoraService {
   public config: Config;
   public loraSearchCache: Map<string, LoraResult[]>;
 
-  constructor(config: Config) {
+  constructor(
+    @inject(TYPES.Config) config: Config
+  ) {
     this.config = config;
     this.loraSearchCache = new Map();
     this.loadLoraCache();

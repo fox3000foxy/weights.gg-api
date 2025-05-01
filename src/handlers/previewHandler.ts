@@ -1,11 +1,14 @@
 import { EventEmitter } from "events";
-import { ImageService } from "../services/imageService";
+import { injectable, inject } from "inversify";
+import { TYPES } from "../types";
+import { IImageService } from "../services/imageService";
 import { EVENT_TYPES, ImageGenerationResult } from "../types";
 
+@injectable()
 export class PreviewHandler {
   constructor(
-    private imageService: ImageService,
-    private emitter: EventEmitter,
+    @inject(TYPES.ImageService) private imageService: IImageService,
+    @inject(TYPES.EventEmitter) private emitter: EventEmitter,
   ) {}
 
   handlePreviewUpdate = async (data: ImageGenerationResult) => {
@@ -14,7 +17,6 @@ export class PreviewHandler {
       return;
     }
 
-    // Emit immediately to confirm we received the data
     this.emitter.emit(EVENT_TYPES.PREVIEW_UPDATE, data);
 
     try {
@@ -45,18 +47,4 @@ export class PreviewHandler {
       }
     }
   };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  debounce<T extends (...args: any[]) => any>(
-    func: T,
-    delay: number,
-  ): (...args: Parameters<T>) => void {
-    let timeoutId: NodeJS.Timeout;
-    const boundFunc = func.bind(this);
-
-    return (...args: Parameters<T>) => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => boundFunc(...args), delay);
-    };
-  }
 }

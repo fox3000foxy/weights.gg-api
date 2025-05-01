@@ -1,13 +1,18 @@
 import { Page } from "rebrowser-puppeteer-core";
-import { LoraService } from "../services/loraService";
+import { ILoraService } from "../services/loraService";
 import { LoraResult, LoraSearchJob } from "types";
+import { injectable, inject } from "inversify";
+import { TYPES } from "../types";
 
-export class LoraSearchProcessor {
-  private loraService: LoraService;
+export interface ILoraSearchProcessor {
+  processLoraSearch(job: LoraSearchJob, loraSearchPage: Page): Promise<void>;
+}
 
-  constructor(loraService: LoraService) {
-    this.loraService = loraService;
-  }
+@injectable()
+export class LoraSearchProcessor implements ILoraSearchProcessor {
+  constructor(
+    @inject(TYPES.LoraService) private loraService: ILoraService
+  ) {}
 
   async processLoraSearch(job: LoraSearchJob, loraSearchPage: Page) {
     const { query, res } = job;
@@ -43,7 +48,7 @@ export class LoraSearchProcessor {
 
       if ((result as unknown[])?.length !== 0) {
         this.loraService.loraSearchCache.set(query, result as LoraResult[]);
-        this.loraService.saveLoraCache(); // Save the cache after updating it
+        this.loraService.saveLoraCache();
       }
 
       if (timeoutId) clearTimeout(timeoutId);

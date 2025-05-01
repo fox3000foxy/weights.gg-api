@@ -1,100 +1,84 @@
-// filepath: /weights-selenium/weights-selenium/src/index.ts
-import express from "express";
+import "reflect-metadata";
+import express, { Express } from "express";
 import * as fs from "fs";
 import * as path from "path";
-
-import config from "./config";
-import PuppeteerService from "./services/puppeteerService";
-import { ImageQueue, SearchQueue } from "./services/queueService";
-import ImageService from "./services/imageService";
-import LoraService from "./services/loraService";
-import StatusService from "./services/statusService";
+import { injectable, inject } from "inversify";
+import { TYPES } from "./types";
 import setupRoutes from "./services/routes";
-import ImageProcessor from "./processors/imageProcessor";
-import LoraSearchProcessor, {
-  LoraSearchJob,
-} from "./processors/loraSearchProcessor";
-import { ImageGenerationResult, Job } from "./types";
+import { Job } from "./types";
+import { LoraSearchJob } from "./processors/loraSearchProcessor";
+import { Config } from "./config";
+import { IPuppeteerService } from "./services/puppeteerService";
+import { IImageQueue, ISearchQueue } from "./services/queueService";
+import { IImageProcessor } from "./processors/imageProcessor";
+import { IImageService } from "./services/imageService";
+import { IStatusService } from "./services/statusService";
+import { ILoraSearchProcessor } from "./processors/loraSearchProcessor";
 
-declare global {
-  interface Window {
-    handlePreviewUpdate: (data: ImageGenerationResult) => void;
+@injectable()
+class AppServer {
+  private app: Express;
+
+  constructor(
+    @inject(TYPES.Config) private config: Config,
+    @inject(TYPES.PuppeteerService) private puppeteerService: IPuppeteerService,
+    @inject(TYPES.ImageQueue) private imageQueue: IImageQueue,
+    @inject(TYPES.SearchQueue) private loraSearchQueue: ISearchQueue,
+    @inject(TYPES.ImageProcessor) private imageProcessor: IImageProcessor,
+    @inject(TYPES.LoraSearchProcessor) private loraSearchProcessor: ILoraSearchProcessor,
+    @inject(TYPES.ImageService) private imageService: IImageService,
+    @inject(TYPES.StatusService) private statusService: IStatusService
+  ) {
+    this.app = express();
+    this.setupMiddleware();
   }
-}
 
-// --- Services Initialization ---
-const imageService = new ImageService(config);
-const loraService = new LoraService(config);
-const statusService = new StatusService();
-const puppeteerService = new PuppeteerService(imageService, statusService);
+  private setupMiddleware() {
+    this.app.use(express.json());
+    this.app.use(express.urlencoded({ extended: true }));
+    this.app.use(express.static(path.join(__dirname, this.config.IMAGE_DIR)));
+  }
 
-// --- Queue Initialization ---
-const imageQueue = new ImageQueue(config.MAX_QUEUE_SIZE);
-const loraSearchQueue = new SearchQueue();
+  private processImageJob = async (job: Job) => {
+    const generationPage = await this.puppeteerService.getGenerationPageReady();
+    await this.imageProcessor.processImage(job, generationPage);
+  };
 
-// --- Express App ---
-const app = express();
+  private processLoraSearchJob = async (job: LoraSearchJob) => {
+    const loraSearchPage = await this.puppeteerService.getLoraSearchPageReady();
+    await this.loraSearchProcessor.processLoraSearch(job, loraSearchPage);
+  };
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, config.IMAGE_DIR)));
+  public async start() {
+    if (!fs.existsSync(path.join(__dirname, this.config.IMAGE_DIR))) {
+      fs.mkdirSync(path.join(__dirname, this.config.IMAGE_DIR));
+      console.log(
+        `Directory "${path.join(__dirname, this.config.IMAGE_DIR)}" created.`
+      );
+    }
 
-// --- Services ---
-const imageProcessor = new ImageProcessor(
-  puppeteerService,
-  imageService,
-  loraService,
-  statusService,
-  config,
-  imageQueue,
-);
-const loraSearchProcessor = new LoraSearchProcessor(loraService);
+    const emitter = this.puppeteerService.emitter;
 
-// --- Queue Processors ---
-// On récupère la page à la demande, juste avant le traitement
-const processImageJob = async (job: Job) => {
-  const generationPage = await puppeteerService.getGenerationPageReady();
-  await imageProcessor.processImage(job, generationPage);
-};
+    this.imageQueue.process(this.processImageJob);
+    this.loraSearchQueue.process(this.processLoraSearchJob);
 
-const processLoraSearchJob = async (job: LoraSearchJob) => {
-  const loraSearchPage = await puppeteerService.getLoraSearchPageReady();
-  await loraSearchProcessor.processLoraSearch(job, loraSearchPage);
-};
-
-// --- Main Function ---
-async function main() {
-  // Create the 'images' directory if it doesn't exist
-  if (!fs.existsSync(path.join(__dirname, config.IMAGE_DIR))) {
-    fs.mkdirSync(path.join(__dirname, config.IMAGE_DIR));
-    console.log(
-      `Directory "${path.join(__dirname, config.IMAGE_DIR)}" created.`,
+    setupRoutes(
+      this.app,
+      this.config,
+      this.puppeteerService,
+      this.imageService,
+      this.statusService,
+      this.imageQueue,
+      this.loraSearchQueue,
+      emitter
     );
+
+    this.app.listen(this.config.PORT, () => {
+      console.log(`Server is running on port ${this.config.PORT}`);
+    });
   }
-
-  // Plus besoin d'initialiser puppeteerService ici
-
-  const emitter = puppeteerService.emitter;
-
-  // Les pages sont récupérées à la demande dans les jobs, donc plus besoin de vérifier ici
-
-  imageQueue.process(processImageJob);
-  loraSearchQueue.process(processLoraSearchJob);
-
-  setupRoutes(
-    app,
-    config,
-    puppeteerService,
-    imageService,
-    statusService,
-    imageQueue,
-    loraSearchQueue,
-    emitter,
-  );
-
-  app.listen(config.PORT, () => {
-    console.log(`Server is running on port ${config.PORT}`);
-  });
 }
 
-main().catch(console.error);
+import container from "./container";
+const server = container.resolve(AppServer);
+server.start().catch(console.error);

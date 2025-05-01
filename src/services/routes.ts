@@ -1,10 +1,10 @@
 import { Express, Request, Response, NextFunction } from "express";
 import { EventEmitter } from "events";
 import { Config } from "../config";
-import { PuppeteerService } from "./puppeteerService";
-import { ImageService } from "./imageService";
-import { StatusService } from "./statusService";
-import { ImageQueue, SearchQueue } from "./queueService";
+import { IPuppeteerService } from "./puppeteerService";
+import { IImageService } from "./imageService";
+import { IStatusService } from "./statusService";
+import { IImageQueue, ISearchQueue } from "./queueService";
 import { GenerateImageJob } from "../types";
 
 let generateTimer: number = 0;
@@ -32,7 +32,7 @@ const healthRoute = (req: Request, res: Response) => {
 };
 
 const statusRoute =
-  (statusService: StatusService) => (req: Request, res: Response) => {
+  (statusService: IStatusService) => (req: Request, res: Response) => {
     const { imageId } = req.params;
     const status = statusService.getImageStatus(imageId);
     res.send(status);
@@ -40,8 +40,8 @@ const statusRoute =
 
 const searchLoraRoute =
   (
-    loraSearchQueue: SearchQueue,
-    imageService: ImageService
+    loraSearchQueue: ISearchQueue,
+    imageService: IImageService
   ) =>
   async (req: Request, res: Response) => {
     const { query } = req.query;
@@ -70,12 +70,12 @@ const searchLoraRoute =
 
 const generateImageRoute =
   (
-    imageQueue: ImageQueue,
+    imageQueue: IImageQueue,
     config: Config,
-    imageService: ImageService,
+    imageService: IImageService,
     events: EventEmitter,
-    puppeteerService: PuppeteerService,
-    statusService: StatusService,
+    puppeteerService: IPuppeteerService,
+    statusService: IStatusService,
   ) =>
   async (req: Request, res: Response) => {
 
@@ -175,8 +175,7 @@ const generateImageRoute =
       res.setHeader("Content-Type", "application/json");
       res.send({
         success: true,
-        imageId: imageId,
-        statusUrl: `${config.API_URL}/status/${imageId}`,
+        imageId: imageId
       });
     } else {
       const job: GenerateImageJob = {
@@ -198,14 +197,13 @@ const generateImageRoute =
       );
       res.send({
         success: true,
-        imageId,
-        statusUrl: `${config.API_URL}/status/${imageId}`,
+        imageId
       });
     }
   };
 
 const quotaRoute =
-  (puppeteerService: PuppeteerService) =>
+  (puppeteerService: IPuppeteerService) =>
   async (_req: Request, res: Response) => {
     const generationPage = await puppeteerService.getGenerationPageReady();
 
@@ -234,11 +232,11 @@ const quotaRoute =
 export const setupRoutes = (
   app: Express,
   config: Config,
-  puppeteerService: PuppeteerService,
-  imageService: ImageService,
-  statusService: StatusService,
-  imageQueue: ImageQueue,
-  loraSearchQueue: SearchQueue,
+  puppeteerService: IPuppeteerService,
+  imageService: IImageService,
+  statusService: IStatusService,
+  imageQueue: IImageQueue,
+  loraSearchQueue: ISearchQueue,
   events: EventEmitter,
 ): void => {
   app.use(apiKeyCheck(config));

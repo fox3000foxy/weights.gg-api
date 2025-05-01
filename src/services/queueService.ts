@@ -1,6 +1,23 @@
 import { EventEmitter } from "events";
 import { Job, LoraSearchJob, QueueItem } from "types";
+import { injectable } from "inversify";
 
+export interface IQueue<T> extends EventEmitter {
+  enqueue(item: QueueItem<T>): void;
+  dequeue(): QueueItem<T> | undefined;
+  isEmpty(): boolean;
+  process(processor: (job: T) => Promise<void>): Promise<void>;
+  clear(): void;
+  readonly size: number;
+  readonly isProcessing: boolean;
+  pause(): void;
+  resume(): void;
+}
+
+export type IImageQueue = IQueue<Job>
+export type ISearchQueue = IQueue<LoraSearchJob>
+
+@injectable()
 export class Queue<T> extends EventEmitter {
   private queue: QueueItem<T>[];
   private maxSize: number;
@@ -84,5 +101,8 @@ export class Queue<T> extends EventEmitter {
   }
 }
 
+@injectable()
 export class ImageQueue extends Queue<Job> {}
+
+@injectable()
 export class SearchQueue extends Queue<LoraSearchJob> {}

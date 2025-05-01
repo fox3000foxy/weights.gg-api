@@ -1,9 +1,11 @@
-import { PuppeteerService } from "../services/puppeteerService";
-import { ImageService } from "../services/imageService";
-import { LoraService } from "../services/loraService";
-import { StatusService } from "../services/statusService";
-import { ImageQueue } from "../services/queueService";
-import { Config } from "../config/index";
+import { inject, injectable } from "inversify";
+import { TYPES } from "../types";
+import { IPuppeteerService } from "../services/puppeteerService";
+import { IImageService } from "../services/imageService";
+import { ILoraService } from "../services/loraService";
+import { IStatusService } from "../services/statusService";
+import { IImageQueue } from "../services/queueService";
+import { Config } from "../config";
 import { generateImage } from "../services/imageGeneration";
 import { Page } from "rebrowser-puppeteer-core";
 import { ImageGenerationResult } from "types";
@@ -16,19 +18,24 @@ interface Job {
   emitter: EventEmitter;
 }
 
-export class ImageProcessor {
+export interface IImageProcessor {
+  processImage(job: Job, page: Page): Promise<void>;
+}
+
+@injectable()
+export class ImageProcessor implements IImageProcessor {
   private oldLoraName: string | null = null;
   private oldLoraPage: Page | null = null; // Track the page used for last Lora
   private retryCount = new Map<string, number>();
   private maxRetries = 3;
 
   constructor(
-    private puppeteerService: PuppeteerService,
-    private imageService: ImageService,
-    private loraService: LoraService,
-    private statusService: StatusService,
-    private config: Config,
-    private imageQueue: ImageQueue,
+    @inject(TYPES.PuppeteerService) private puppeteerService: IPuppeteerService,
+    @inject(TYPES.ImageService) private imageService: IImageService,
+    @inject(TYPES.LoraService) private loraService: ILoraService,
+    @inject(TYPES.StatusService) private statusService: IStatusService,
+    @inject(TYPES.Config) private config: Config,
+    @inject(TYPES.ImageQueue) private imageQueue: IImageQueue,
   ) {}
 
   async processImage(job: Job, page: Page): Promise<void> {
