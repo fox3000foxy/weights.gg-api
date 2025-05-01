@@ -1,9 +1,11 @@
-import { PuppeteerService } from "../services/puppeteerService";
-import { ImageService } from "../services/imageService";
-import { LoraService } from "../services/loraService";
-import { StatusService } from "../services/statusService";
-import { ImageQueue } from "../services/queueService";
-import { Config } from "../config/index";
+import { inject, injectable } from "inversify";
+import { TYPES } from "../types";
+import { IPuppeteerService } from "../services/puppeteerService";
+import { IImageService } from "../services/imageService";
+import { ILoraService } from "../services/loraService";
+import { IStatusService } from "../services/statusService";
+import { IImageQueue } from "../services/queueService";
+import { Config } from "../config";
 import { generateImage } from "../services/imageGeneration";
 import { Page } from "rebrowser-puppeteer-core";
 import { ImageGenerationResult } from "types";
@@ -16,24 +18,28 @@ interface Job {
   emitter: EventEmitter;
 }
 
-export class ImageProcessor {
+export interface IImageProcessor {
+  processImage(job: Job, page: Page): Promise<void>;
+}
+
+@injectable()
+export class ImageProcessor implements IImageProcessor {
   private oldLoraName: string | null = null;
   private oldLoraPage: Page | null = null; // Track the page used for last Lora
   private retryCount = new Map<string, number>();
   private maxRetries = 3;
 
   constructor(
-    private puppeteerService: PuppeteerService,
-    private imageService: ImageService,
-    private loraService: LoraService,
-    private statusService: StatusService,
-    private config: Config,
-    private imageQueue: ImageQueue,
+    @inject(TYPES.PuppeteerService) private puppeteerService: IPuppeteerService,
+    @inject(TYPES.ImageService) private imageService: IImageService,
+    @inject(TYPES.LoraService) private loraService: ILoraService,
+    @inject(TYPES.StatusService) private statusService: IStatusService,
+    @inject(TYPES.Config) private config: Config,
+    @inject(TYPES.ImageQueue) private imageQueue: IImageQueue,
   ) {}
 
   async processImage(job: Job, page: Page): Promise<void> {
-    const { prompt, loraName, imageId } = job;
-    const retries = this.retryCount.get(imageId) || 0;
+    const { imageId } = job;
 
     if (!page) {
       console.error("Page is null, cannot generate image.");
@@ -44,63 +50,44 @@ export class ImageProcessor {
     try {
       this.statusService.updateImageStatus(imageId, "STARTING");
 
-      // Vérifier si la page est utilisable, sinon la redémarrer
-      const isPageUsable = await page
-        .evaluate(() => {
-          return (
-            document.readyState === "complete" &&
-            !document.querySelector(".error-boundary") &&
-            !document.querySelector(".Toastify__toast--error")
-          );
-        })
-        .catch(() => false);
+      await this.ensurePageIsUsable(page);
+      await this.handleLora(job.loraName, page, job);
 
-      if (!isPageUsable) {
-        console.log("Page is in an unstable state, restarting...");
-        await this.restartPageAndInit(page);
-      }
-
-      await this.handleLora(loraName, page, job);
       const result = await generateImage(
-        decodeURIComponent(prompt),
+        decodeURIComponent(job.prompt),
         page,
         imageId,
       );
       await this.handleImageResult(result, imageId);
 
-      // Réinitialiser le compteur de retry en cas de succès
-      this.retryCount.delete(imageId);
-    } catch (error: Error | unknown) {
-      if (error instanceof Error) {
-        console.error("Error generating image:", error);
-
-        // Implémenter un système de retry
-        if (retries < this.maxRetries) {
-          console.log(
-            `Retrying job ${imageId}, attempt ${retries + 1}/${this.maxRetries}`,
-          );
-          this.retryCount.set(imageId, retries + 1);
-
-          // Attendre avant de réessayer
-          await new Promise((r) => setTimeout(r, 2000));
-
-          // Redémarrer la page et réessayer
-          await this.restartPageAndInit(page);
-          return this.processImage(job, page);
-        } else {
-          this.statusService.updateImageStatus(
-            imageId,
-            "FAILED",
-            `Failed after ${this.maxRetries} attempts: ${error.message}`,
-          );
-          this.retryCount.delete(imageId);
-        }
-      }
+      this.retryCount.delete(imageId); // Reset retry counter on success
+    } catch (error: unknown) {
+      await this.handleImageError(error, job, page);
     }
   }
 
-  private async handleLora(loraName: string | null, page: Page, job: Job) {
-    // If the page has changed since last Lora, reset oldLoraName and oldLoraPage
+  private async ensurePageIsUsable(page: Page): Promise<void> {
+    const isPageUsable = await page
+      .evaluate(() => {
+        return (
+          document.readyState === "complete" &&
+          !document.querySelector(".error-boundary") &&
+          !document.querySelector(".Toastify__toast--error")
+        );
+      })
+      .catch(() => false);
+
+    if (!isPageUsable) {
+      console.log("Page is in an unstable state, restarting...");
+      await this.restartPageAndInit(page);
+    }
+  }
+
+  private async handleLora(
+    loraName: string | null,
+    page: Page,
+    job: Job,
+  ): Promise<void> {
     if (this.oldLoraPage !== page) {
       this.oldLoraName = null;
       this.oldLoraPage = page;
@@ -112,19 +99,16 @@ export class ImageProcessor {
         const loraAdded = await this.loraService.addLora(loraName, page);
         if (!loraAdded) {
           console.error("Failed to add Lora, requeuing job.");
-          this.imageQueue.enqueue(
-            {
-              data: { query: null },
-              id: job.imageId,
-              job: {
-                prompt: job.prompt,
-                loraName: null,
-                imageId: job.imageId,
-                emitter: job.emitter,
-              },
+          this.imageQueue.enqueue({
+            data: { query: null },
+            id: job.imageId,
+            job: {
+              prompt: job.prompt,
+              loraName: null,
+              imageId: job.imageId,
+              emitter: job.emitter,
             },
-            page,
-          ); // Re-add the job to the front of the queue
+          });
           return;
         }
         this.oldLoraName = loraName;
@@ -140,43 +124,67 @@ export class ImageProcessor {
   private async handleImageResult(
     result: ImageGenerationResult,
     imageId: string,
-  ) {
+  ): Promise<void> {
     if (result.error) {
       console.error("Error generating image:", result.error);
       this.statusService.updateImageStatus(imageId, "FAILED", result.error);
       await this.restartPageAndInit(
         this.puppeteerService.generationPage as Page,
       );
-    } else {
-      try {
-        if (!result.url) {
-          throw new Error("No URL returned from image generation");
-        }
-        const base64Data = result.url.replace(
-          /^data:image\/(png|jpeg|jpg);base64,/,
-          "",
-        );
-        if (result.url.startsWith("data:image")) {
-          await this.imageService.saveBase64Image(base64Data, imageId, true);
-        } else {
-          await this.imageService.downloadImage(result.url, imageId);
-        }
-      } catch (error: Error | unknown) {
-        if (error instanceof Error) {
-          console.error("Error handling final image:", error);
-          this.statusService.updateImageStatus(
-            imageId,
-            "FAILED",
-            error.message,
-          );
-        }
-        return;
+      return;
+    }
+
+    try {
+      if (!result.url) {
+        throw new Error("No URL returned from image generation");
+      }
+      const base64Data = result.url.replace(
+        /^data:image\/(png|jpeg|jpg);base64,/,
+        "",
+      );
+      if (result.url.startsWith("data:image")) {
+        await this.imageService.saveBase64Image(base64Data, imageId, true);
+      } else {
+        await this.imageService.downloadImage(result.url, imageId);
       }
       this.statusService.updateImageStatus(imageId, "COMPLETED");
+    } catch (error: unknown) {
+      console.error("Error handling final image:", error);
+      this.statusService.updateImageStatus(
+        imageId,
+        "FAILED",
+        (error as Error).message,
+      );
     }
   }
 
-  private async restartPageAndInit(page: Page) {
+  private async handleImageError(error: unknown, job: Job, page: Page): Promise<void> {
+    const { imageId } = job;
+    const retries = this.retryCount.get(imageId) || 0;
+
+    console.error("Error generating image:", error);
+
+    if (retries < this.maxRetries) {
+      console.log(
+        `Retrying job ${imageId}, attempt ${retries + 1}/${this.maxRetries}`,
+      );
+      this.retryCount.set(imageId, retries + 1);
+
+      await new Promise((r) => setTimeout(r, 2000)); // Wait before retrying
+
+      await this.restartPageAndInit(page);
+      return this.processImage(job, page);
+    } else {
+      this.statusService.updateImageStatus(
+        imageId,
+        "FAILED",
+        `Failed after ${this.maxRetries} attempts: ${(error as Error).message}`,
+      );
+      this.retryCount.delete(imageId);
+    }
+  }
+
+  private async restartPageAndInit(page: Page): Promise<void> {
     this.puppeteerService.generationPage =
       await this.puppeteerService.restartPage(page);
     await this.puppeteerService.onStart(
@@ -185,6 +193,3 @@ export class ImageProcessor {
     );
   }
 }
-
-module.exports = ImageProcessor;
-export default ImageProcessor;

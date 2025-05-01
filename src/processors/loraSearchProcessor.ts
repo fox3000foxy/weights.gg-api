@@ -1,24 +1,24 @@
 import { Page } from "rebrowser-puppeteer-core";
-import { LoraService } from "../services/loraService";
+import { ILoraService } from "../services/loraService";
 import { LoraResult, LoraSearchJob } from "types";
+import { injectable, inject } from "inversify";
+import { TYPES } from "../types";
 
-export class LoraSearchProcessor {
-  private loraService: LoraService;
+export interface ILoraSearchProcessor {
+  processLoraSearch(job: LoraSearchJob, page: Page): Promise<void>;
+}
 
-  constructor(loraService: LoraService) {
-    this.loraService = loraService;
-  }
+@injectable()
+export class LoraSearchProcessor implements ILoraSearchProcessor {
+  private readonly searchTimeoutMs = 5000;
 
-  async processLoraSearch(job: LoraSearchJob, loraSearchPage: Page) {
+  constructor(
+    @inject(TYPES.LoraService) private loraService: ILoraService
+  ) {}
+
+  async processLoraSearch(job: LoraSearchJob, loraSearchPage: Page): Promise<void> {
     const { query, res } = job;
     try {
-      if (this.loraService.loraSearchCache.has(query)) {
-        console.log(`Using cached result for Lora search: ${query}`);
-        const cachedResult = this.loraService.loraSearchCache.get(query);
-        res.send(cachedResult);
-        return;
-      }
-
       const searchResult = await this.performLoraSearch(query, loraSearchPage);
       res.send(searchResult);
     } catch (error) {
@@ -27,31 +27,36 @@ export class LoraSearchProcessor {
     }
   }
 
-  private async performLoraSearch(query: string, loraSearchPage: Page) {
-    let timeoutId: NodeJS.Timeout | null = null;
-    const timeoutPromise = new Promise<unknown>((_, reject) => {
-      timeoutId = setTimeout(() => {
-        reject(new Error("Lora search timed out"));
-      }, 5000); // 5 seconds timeout
-    });
-
+  private async performLoraSearch(query: string, loraSearchPage: Page): Promise<LoraResult[]> {
     try {
       const result = await Promise.race([
         this.loraService.searchLoras(query, loraSearchPage),
-        timeoutPromise,
+        this.createTimeoutPromise(this.searchTimeoutMs),
       ]);
 
-      if ((result as unknown[])?.length !== 0) {
-        this.loraService.loraSearchCache.set(query, result as LoraResult[]);
-        this.loraService.saveLoraCache(); // Save the cache after updating it
+      const loraResults = result as LoraResult[];
+      if (loraResults?.length !== 0) {
+        this.cacheLoraResults(query, loraResults);
       }
 
-      if (timeoutId) clearTimeout(timeoutId);
-      return result;
+      return loraResults;
     } catch (error) {
-      if (timeoutId) clearTimeout(timeoutId);
+      console.error(`Lora search failed for query "${query}":`, error);
       throw error;
     }
+  }
+
+  private createTimeoutPromise(timeoutMs: number): Promise<never> {
+    return new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error("Lora search timed out"));
+      }, timeoutMs);
+    });
+  }
+
+  private cacheLoraResults(query: string, results: LoraResult[]): void {
+    this.loraService.loraSearchCache.set(query, results);
+    this.loraService.saveLoraCache();
   }
 }
 

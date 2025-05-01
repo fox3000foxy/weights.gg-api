@@ -87,6 +87,19 @@ export interface SearchLoraJob extends LoraSearchJob {
   data: object;
 }
 
+export enum TYPES {
+  Config = "Config",
+  PuppeteerService = "PuppeteerService",
+  ImageService = "ImageService",
+  LoraService = "LoraService",
+  StatusService = "StatusService",
+  ImageQueue = "ImageQueue",
+  SearchQueue = "SearchQueue",
+  ImageProcessor = "ImageProcessor",
+  LoraSearchProcessor = "LoraSearchProcessor",
+  EventEmitter = "EventEmitter",
+}
+
 export interface StatusUpdate {
   imageId: string;
   status: "STARTING" | "COMPLETED" | "FAILED" | "PENDING" | "QUEUED";

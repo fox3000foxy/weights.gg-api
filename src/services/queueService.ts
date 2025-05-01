@@ -1,22 +1,33 @@
-import { Page } from "rebrowser-puppeteer-core";
 import { EventEmitter } from "events";
 import { Job, LoraSearchJob, QueueItem } from "types";
+import { injectable } from "inversify";
 
+export interface IQueue<T> extends EventEmitter {
+  enqueue(item: QueueItem<T>): void;
+  dequeue(): QueueItem<T> | undefined;
+  isEmpty(): boolean;
+  process(processor: (job: T) => Promise<void>): Promise<void>;
+  clear(): void;
+  readonly size: number;
+  readonly isProcessing: boolean;
+  pause(): void;
+  resume(): void;
+}
+
+export type IImageQueue = IQueue<Job>
+export type ISearchQueue = IQueue<LoraSearchJob>
+
+@injectable()
 export class Queue<T> extends EventEmitter {
-  private queue: QueueItem<T>[];
-  private maxSize: number;
-  private processing: boolean;
-  private processor: ((job: T, page: Page) => Promise<void>) | null;
+  private queue: QueueItem<T>[] = [];
+  private processing: boolean = false;
+  private processor: ((job: T) => Promise<void>) | null = null;
 
-  constructor(maxSize: number = 10) {
+  constructor(private maxSize: number = 10) {
     super();
-    this.queue = [];
-    this.maxSize = maxSize;
-    this.processing = false;
-    this.processor = null;
   }
 
-  public enqueue(item: QueueItem<T>, page: Page): void {
+  public enqueue(item: QueueItem<T>): void {
     if (this.queue.length >= this.maxSize) {
       this.emit("error", new Error("Queue is full"));
       throw new Error("Queue is full");
@@ -25,7 +36,7 @@ export class Queue<T> extends EventEmitter {
     this.emit("enqueued", item);
 
     if (!this.processing && this.processor) {
-      this.process(this.processor, page);
+      this.process(this.processor);
     }
   }
 
@@ -38,8 +49,7 @@ export class Queue<T> extends EventEmitter {
   }
 
   public async process(
-    processor: (job: T, page: Page) => Promise<void>,
-    page: Page,
+    processor: (job: T) => Promise<void>
   ): Promise<void> {
     if (this.processing) return;
 
@@ -53,7 +63,7 @@ export class Queue<T> extends EventEmitter {
           console.error("Item ID is undefined");
           continue;
         }
-        await processor(item.job, page);
+        await processor(item.job);
       }
     } catch (error) {
       console.error("Error processing queue item:", error);
@@ -62,7 +72,6 @@ export class Queue<T> extends EventEmitter {
     }
   }
 
-  // Additional methods
   public clear(): void {
     this.queue = [];
   }
@@ -79,12 +88,15 @@ export class Queue<T> extends EventEmitter {
     this.processing = false;
   }
 
-  public resume(page: Page): void {
+  public resume(): void {
     if (this.processor && !this.processing) {
-      this.process(this.processor, page);
+      this.process(this.processor);
     }
   }
 }
 
+@injectable()
 export class ImageQueue extends Queue<Job> {}
+
+@injectable()
 export class SearchQueue extends Queue<LoraSearchJob> {}

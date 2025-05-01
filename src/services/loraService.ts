@@ -2,12 +2,26 @@ import * as fs from "fs";
 import { Page } from "rebrowser-puppeteer-core";
 import { Config } from "../config";
 import { LoraResult } from "types";
+import { injectable, inject } from "inversify";
+import { TYPES } from "../types";
 
-export class LoraService {
+export interface ILoraService {
+  addLora(loraName: string, page: Page): Promise<boolean>;
+  removeLora(page: Page): Promise<void>;
+  searchLoras(loraName: string, page: Page): Promise<LoraResult[]>;
+  saveLoraCache(): void;
+  config: Config;
+  loraSearchCache: Map<string, LoraResult[]>;
+}
+
+@injectable()
+export class LoraService implements ILoraService {
   public config: Config;
   public loraSearchCache: Map<string, LoraResult[]>;
 
-  constructor(config: Config) {
+  constructor(
+    @inject(TYPES.Config) config: Config
+  ) {
     this.config = config;
     this.loraSearchCache = new Map();
     this.loadLoraCache();
@@ -24,7 +38,7 @@ export class LoraService {
         ): Promise<Element | null> {
           while (!document.querySelector(selector)) {
             console.log(`${selector} not loaded yet, waiting...`);
-            await sleepBrowser(10);
+            await sleepBrowser(100);
           }
           return document.querySelector(selector);
         }
@@ -60,7 +74,7 @@ export class LoraService {
               return null;
             }
             console.log(`${selector} not loaded yet, waiting...`);
-            await sleepBrowser(10);
+            await sleepBrowser(100);
           }
           return document.querySelector(selector);
         }
@@ -109,7 +123,7 @@ export class LoraService {
     await page.evaluate(async () => {
       const sleepBrowser = (ms: number) =>
         new Promise((r) => setTimeout(r, ms));
-      const loraButton = document.querySelector(
+      const loraButton = await waitForAndQuerySelector(
         "button.hover-scale.flex.h-7.w-full.items-center.gap-2.rounded-lg.bg-gray-100.px-2",
       );
       (loraButton as HTMLElement)?.click();
@@ -120,7 +134,7 @@ export class LoraService {
       ): Promise<Element | null> {
         while (!document.querySelector(selector)) {
           console.log(`${selector} not loaded yet, waiting...`);
-          await sleepBrowser(10);
+          await sleepBrowser(100);
         }
         return document.querySelector(selector);
       }
@@ -142,7 +156,7 @@ export class LoraService {
         )
       ) {
         console.log("Lora list not loaded yet, waiting...");
-        await sleepBrowser(10);
+        await sleepBrowser(100);
       }
       await sleepBrowser(500);
 
