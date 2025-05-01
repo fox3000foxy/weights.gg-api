@@ -8,6 +8,13 @@ from dataclasses import dataclass, field
 
 @dataclass
 class WeightsApi:
+    """
+    A class to interact with the Weights API.
+
+    attr api_key: Optional[str]: API key for authentication.
+    attr endpoint: Optional[str]: API endpoint URL.
+    attr session: Optional[aiohttp.ClientSession]: HTTP session for making requests.
+    """
     api_key: Optional[str] = None
     endpoint: Optional[str] = field(default_factory=lambda: os.getenv('WEIGHTS_UNOFFICIAL_ENDPOINT', 'http://localhost:3000'))
     session: Optional[aiohttp.ClientSession] = field(init=False, default=None)
@@ -78,43 +85,47 @@ class WeightsApi:
             return await api_call()
         except Exception as e:
             raise Exception(f"Weights API Error: The API is not reachable. Please check your connection or the API status: {e}")
+        
+    async def _api_call_wrapper(self, path: str, method: str = 'GET', body: Optional[Dict] = None, response_type: str = 'json'):
+        """
+        A wrapper for API calls that handles the request and response.
+        """
+        async def call():
+            response = await self.api_call(path, method=method, body=body)
+            if response_type == 'json':
+                return await response.json()
+            elif response_type == 'text':
+                return await response.text()
+            else:
+                raise ValueError(f"Unsupported response type: {response_type}")
+        return await self.call_with_health_check(call)
+
 
     async def get_status(self, image_id: str) -> Dict:
         """
         Gets the status of a specific image
         """
-        async def call():
-            response = await self.api_call(f'/status/{image_id}')
-            return await response.json()
-        return await self.call_with_health_check(call)
+        return await self._api_call_wrapper(f'/status/{image_id}')
 
     async def get_quota(self) -> str:
         """
         Retrieves quota information
         """
-        async def call():
-            response = await self.api_call('/quota')
-            return await response.text()
-        return await self.call_with_health_check(call)
+        return await self._api_call_wrapper('/quota', response_type='text')
 
     async def search_loras(self, query: str) -> Dict:
         """
         Searches for Lora models
         """
-        async def call():
-            response = await self.api_call('/search-loras', method='GET', body={'query': query})
-            return await response.json()
-        return await self.call_with_health_check(call)
+        return await self._api_call_wrapper('/search-loras', body={'query': query})
 
     async def generate_image(self, prompt: str, lora_name: Optional[str] = None) -> Dict:
         """
         Generates an image based on parameters
         """
         params = {'prompt': prompt, 'loraName': lora_name}
-        async def call():
-            response = await self.api_call('/generateImage', method='GET', body=params)
-            return await response.json()
-        return await self.call_with_health_check(call)
+        return await self._api_call_wrapper('/generateImage', body=params)
+
 
     async def generate_progressive_image(self, prompt: str, lora_name: Optional[str] = None, 
                                       callback: Callable[[str, Dict], None] = lambda status, data: None) -> Dict:
