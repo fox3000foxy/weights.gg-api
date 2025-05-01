@@ -41,7 +41,7 @@ export interface IPuppeteerService {
 @injectable()
 export class PuppeteerService implements IPuppeteerService {
   private browser: Browser | null = null;
-  private idleTimeoutMs = 1500 * 1000; // 15 seconds idle timeout
+  private idleTimeoutMs = 30 * 1000; // 15 seconds idle timeout
   private headless: boolean;
   public emitter: events.EventEmitter;
 
