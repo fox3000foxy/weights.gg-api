@@ -1,7 +1,0 @@
-pyproject.toml
-setup.py
-weights_api.py
-weights_api.egg-info/PKG-INFO
-weights_api.egg-info/SOURCES.txt
-weights_api.egg-info/dependency_links.txt
-weights_api.egg-info/top_level.txt
