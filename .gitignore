@@ -138,3 +138,5 @@ images
 lora_cache.json
 dist
 package-lock.json
+libs/build
+libs/weights_api.egg-info
