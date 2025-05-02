@@ -1,6 +1,6 @@
-import { Request, Response, NextFunction } from "express";
+import { Request, Response } from "express";
 import { inject } from "inversify";
-import { controller, httpGet, request, response, next } from "inversify-express-utils";
+import { controller, httpGet, request, response } from "inversify-express-utils";
 import { TYPES } from "../types";
 import { IStatusService } from "../services/statusService";
 import * as yup from "yup";
@@ -19,13 +19,14 @@ export class StatusController {
     @httpGet("/:imageId", checkApiKey)
     public async getImageStatus(
       @request() req: Request,
-      @response() res: Response,
-      @next() next: NextFunction
+      @response() res: Response
     ) {
         try {
           await statusQuerySchema.validate(req.params, { abortEarly: false });
-        } catch (err: any) {
-          return res.status(400).json({ error: "Validation error", details: err.errors });
+        } catch (err: yup.ValidationError | unknown) {
+            if(err instanceof yup.ValidationError) {
+                return res.status(400).json({ error: "Validation error", details: err.errors });
+            }
         }
         const { imageId } = req.params;
         const status = this.statusService.getImageStatus(imageId);

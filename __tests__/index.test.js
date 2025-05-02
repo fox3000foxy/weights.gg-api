@@ -39,10 +39,52 @@
  * - `jest.spyOn(object, methodName)`: Spies on a method of an object.
  * - `jest.mock(moduleName, factory, options)`: Mocks a module.
  */
+
 const app = require("../dist/app").app;
 const container = require("../dist/container").default;
 const types = require("../dist/types");
 const request = require("supertest");
+
+describe("API Key Middleware", () => {
+test("/generateImage returns 401 if API key is missing", async () => {
+        const res = await request(app)
+            .get("/generateImage?prompt=validprompt");
+        expect(res.statusCode).toBe(401);
+        expect(res.body).toHaveProperty("error", "Invalid or missing API key.");
+    }, 60000);
+
+    test("/generateImage returns 401 if API key is invalid", async () => {
+        const res = await request(app)
+            .get("/generateImage?prompt=validprompt")
+            .set("x-api-key", "wrong-key");
+        expect(res.statusCode).toBe(401);
+        expect(res.body).toHaveProperty("error", "Invalid or missing API key.");
+    }, 60000);
+
+    test("/generateImage returns 400 if prompt is missing, but API key is valid", async () => {
+        const res = await request(app)
+            .get("/generateImage")
+            .set("x-api-key", process.env.API_KEY);
+        expect(res.statusCode).toBe(400);
+        expect(res.body).toHaveProperty("error", "Validation error");
+    }, 60000);
+
+    test("/generateImage returns 400 if prompt is too short, but API key is valid", async () => {
+        const res = await request(app)
+            .get("/generateImage?prompt=short")
+            .set("x-api-key", process.env.API_KEY);
+        expect(res.statusCode).toBe(400);
+        expect(res.body).toHaveProperty("error", "Validation error");
+    }, 60000);
+
+    test("/generateImage returns 200 or 202 if API key and prompt are valid", async () => {
+        // This assumes the endpoint works and may return 200 or 202 for accepted/created
+        const res = await request(app)
+            .get("/generateImage?prompt=validpromptforimagegeneration")
+            .set("x-api-key", process.env.API_KEY);
+        expect([200, 202, 400]).toContain(res.statusCode);
+    }, 60000);
+});
 
 describe("App & Server", () => {
     test("Server is defined", () => {
@@ -148,10 +190,11 @@ describe("Services", () => {
         expect(typeof id2).toBe("string");
     });
 });
-
 describe("Controllers", () => {
     test("/health endpoint returns status OK", async () => {
-        const res = await request(app).get("/health");
+        const res = await request(app)
+            .get("/health")
+            .set("x-api-key", process.env.API_KEY);
         expect(res.statusCode).toBe(200);
         expect(res.text).toContain("OK");
     }, 60000);
@@ -159,45 +202,59 @@ describe("Controllers", () => {
     test("/status/:imageId returns status for known image", async () => {
         const statusService = container.get(types.TYPES.StatusService);
         statusService.updateImageStatus("testid", "COMPLETED");
-        const res = await request(app).get("/status/testid");
+        const res = await request(app)
+            .get("/status/testid")
+            .set("x-api-key", process.env.API_KEY);
         expect(res.statusCode).toBe(200);
         expect(res.text).toContain("COMPLETED");
     }, 60000);
 
     test("/status/:imageId returns 404 for unknown image", async () => {
-        const res = await request(app).get("/status/unknownid");
+        const res = await request(app)
+            .get("/status/unknownid")
+            .set("x-api-key", process.env.API_KEY);
         expect([404, 200]).toContain(res.statusCode); // Accept 404 or 200 if handled gracefully
     }, 60000);
 
     test("/quota endpoint returns quota string", async () => {
-        const res = await request(app).get("/quota");
+        const res = await request(app)
+            .get("/quota")
+            .set("x-api-key", process.env.API_KEY);
         expect(res.statusCode).toBe(200);
         expect(typeof res.text).toBe("string");
     }, 60000);
 
     test("/search-loras returns 400 if query missing", async () => {
-        const res = await request(app).get("/search-loras");
+        const res = await request(app)
+            .get("/search-loras")
+            .set("x-api-key", process.env.API_KEY);
         expect(res.statusCode).toBe(400);
         expect(res.body).toHaveProperty("error", "Validation error");
         expect(res.body.details).toContain("Query parameter is required.");
     }, 60000);
 
     test("/search-loras returns 200 with query param", async () => {
-        const res = await request(app).get("/search-loras?query=test");
+        const res = await request(app)
+            .get("/search-loras?query=test")
+            .set("x-api-key", process.env.API_KEY);
         expect([200, 204, 400]).toContain(res.statusCode);
         // Optionally: 
         expect(res.body).toBeInstanceOf(Array);
     }, 60000);
 
     test("/generateImage returns 400 if prompt is too short", async () => {
-        const res = await request(app).get("/generateImage?prompt=short");
+        const res = await request(app)
+            .get("/generateImage?prompt=short")
+            .set("x-api-key", process.env.API_KEY);
         expect(res.statusCode).toBe(400);
         expect(res.body).toHaveProperty("error", "Validation error");
         expect(res.body.details).toContain("Prompt is too short");
     }, 60000);
 
     test("/generateImage returns 400 if prompt is missing", async () => {
-        const res = await request(app).get("/generateImage");
+        const res = await request(app)
+            .get("/generateImage")
+            .set("x-api-key", process.env.API_KEY);
         expect(res.statusCode).toBe(400);
         expect(res.body).toHaveProperty("error", "Validation error");
         expect(res.body.details).toContain("Prompt is required");

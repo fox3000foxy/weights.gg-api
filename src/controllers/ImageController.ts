@@ -35,8 +35,10 @@ export class ImageController {
   public async generateImage(@request() req: Request, @response() res: Response) {
     try {
       await generateImageQuerySchema.validate(req.query, { abortEarly: false, stripUnknown: true });
-    } catch (err: any) {
-      return res.status(400).json({ error: "Validation error", details: err.errors });
+    } catch (err: yup.ValidationError | unknown) {
+        if(err instanceof yup.ValidationError) {
+            return res.status(400).json({ error: "Validation error", details: err.errors });
+        }
     }
 
     if (!generateTimer) {

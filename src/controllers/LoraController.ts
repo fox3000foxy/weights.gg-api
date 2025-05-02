@@ -24,8 +24,10 @@ export class LoraController {
   public async searchLora(@request() req: Request, @response() res: Response) {
     try {
       await searchLoraQuerySchema.validate(req.query, { abortEarly: false, stripUnknown: true });
-    } catch (err: any) {
-      return res.status(400).json({ error: "Validation error", details: err.errors });
+    } catch (err: yup.ValidationError | unknown) {
+        if(err instanceof yup.ValidationError) {
+            return res.status(400).json({ error: "Validation error", details: err.errors });
+        }
     }
 
     const { query } = req.query as { query: string };
