@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+/* eslint-disable no-undef */
+
 /**
  * @file Jest test suite for the application.
  * @module __tests__/index.test
@@ -36,7 +39,6 @@
  * - `jest.spyOn(object, methodName)`: Spies on a method of an object.
  * - `jest.mock(moduleName, factory, options)`: Mocks a module.
  */
-/* eslint-disable no-undef */
 const app = require("../dist/app").app;
 const container = require("../dist/container").default;
 const types = require("../dist/types");

@@ -1,88 +1,107 @@
-- [Weights.gg Unofficial API](#weightsgg-unofficial-api)
-    - [✨ Features](#-features)
-    - [⚠️ Warning](#%EF%B8%8F-warning)
-    - [🚀 Endpoints](#-endpoints)
-        - [🩺 Health Check](#health-check)
-        - [🔍 Search LoRAs](#search-loras)
-        - [🚦 Image Status](#image-status)
-        - [🖼️ Generate Image](#generate-image)
-        - [💰 API Quota](#api-quota)
-    - [📖 Libraries](#-libraries)
-    - [⚠️ Compliance with Weights Terms of Service](#-compliance-with-weights-terms-of-service)
-    - [🤝 Community-driven intent](#-community-driven-intent)
-
 # Weights.gg Unofficial API
 
 An automated image generation tool for Weights.gg, leveraging Puppeteer and an Express API to manage concurrent requests.
 
+---
+
+## 📚 Table of Contents
+
+| Section | Description |
+|---------|-------------|
+| [✨ Features](#-features) | Key capabilities of the API |
+| [⚠️ Warning](#-warning) | Important usage notes |
+| [🚀 Endpoints](#-endpoints) | API endpoints and usage |
+| [📦 Dev Packages](#-dev-packages) | Development dependencies |
+| [📖 Libraries](#-libraries) | Client libraries for integration |
+| [❗ Compliance](#-compliance-with-weights-terms-of-service) | Terms of Service and usage rules |
+| [🤝 Community](#-community-driven-intent) | Project intent and contact |
+
+---
+
 ## ✨ Features
 
-- **Concurrent Image Generation:** Queue system for handling multiple image requests.
-- **API Key Authentication:** Secure endpoints.
-- **Image Status Tracking:** Real-time status updates (STARTING, PENDING, COMPLETED, FAILED).
-- **LoRA Support:** Add/remove LoRA models during generation.
-- **Preview Updates:** See previews as your image generates.
-- **Robust Error Handling:** Comprehensive error management and logging.
-- **Health Check:** Monitor the bot's status with a dedicated endpoint.
+| Feature | Description |
+|---------|-------------|
+| **Concurrent Image Generation** | Queue system for handling multiple image requests |
+| **API Key Authentication** | Secure endpoints |
+| **Image Status Tracking** | Real-time status updates (STARTING, PENDING, COMPLETED, FAILED) |
+| **LoRA Support** | Add/remove LoRA models during generation |
+| **Preview Updates** | See previews as your image generates |
+| **Robust Error Handling** | Comprehensive error management and logging |
+| **Health Check** | Monitor the bot's status with a dedicated endpoint |
+
+---
 
 ## ⚠️ Warning
 
-Generated images expire after 10 minutes. Download promptly!
+> **Generated images expire after 10 minutes. Download promptly!**
+
+---
 
 ## 🚀 Endpoints
 
-### 🩺 Health Check
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Checks server status |
+| `/search-loras?query=...` | GET | Search for LoRA models by name or tag |
+| `/status/:imageId` | GET | Get status and details for a generated image |
+| `/generateImage?prompt=...&loraName=...` | POST | Generate a new image with optional LoRA |
+| `/quota` | GET | Retrieve API quota information |
 
-- `/health`: Checks server status.
+<details>
+<summary>Endpoint Details</summary>
 
-### 🔍 Search LoRAs
+### `/search-loras`
+- **Query Parameter**: `query` (required) — URL-encoded search term
+- **Response**: JSON array of LoRA objects (`name`, `image`, `tags`)
 
-- `/search-loras`
-    - **Query Parameter**:
-        - `query` (required): URL-encoded search term.
-    - **Response**: JSON array of LoRA objects:
-        - `name`: LoRA name.
-        - `image`: LoRA image URL.
-        - `tags`: Array of tags.
+### `/status/:imageId`
+- **Path Parameter**: `imageId` (required)
+- **Response**: `status`, `prompt`, `startTime`, `lastModifiedDate`, `error`
 
-### 🚦 Image Status
+### `/generateImage`
+- **Query Parameters**: `prompt` (required), `loraName` (optional)
+- **Response**: `success`, `imageId`, `imageUrl`, `statusUrl`
+</details>
 
-- `/status/:imageId`
-    - **Path Parameter**:
-        - `imageId` (required): Image ID.
-    - **Response**:
-        - `status`: (QUEUED, STARTING, PENDING, COMPLETED, FAILED, NOT_FOUND).
-        - `prompt`: Generation prompt.
-        - `startTime`: Start time.
-        - `lastModifiedDate`: Last status update.
-        - `error`: Error message (if applicable).
+---
 
-### 🖼️ Generate Image
+## 📦 Dev Packages
 
-- `/generateImage`
-    - **Query Parameters**:
-        - `prompt` (required): URL-encoded prompt.
-        - `loraName` (optional): URL-encoded LoRA name.
-    - **Response**:
-        - `success`: Boolean.
-        - `imageId`: Unique ID.
-        - `imageUrl`: Image URL.
-        - `statusUrl`: Status check URL.
-
-### 💰 API Quota
-
-- `/quota`: Retrieves API quota information.
-    - **Response**: Plain text quota details.
+| Package | Purpose | Link |
+|---------|---------|------|
+| **eslint** | Code linting and style enforcement | [eslint](https://eslint.org/) |
+| **prettier** | Code formatting | [prettier](https://prettier.io/) |
+| **jest** | JavaScript/TypeScript testing framework | [jest](https://jestjs.io/) |
+| **yup** | Schema validation for request data | [yup](https://github.com/jquense/yup) |
+| **puppeteer** | Headless browser automation for image generation | [puppeteer](https://pptr.dev/) |
+| **puppeteer-real-browser** | Enhanced Puppeteer browser emulation | [puppeteer-real-browser](https://github.com/berstend/puppeteer-real-browser) |
+| **rebrowser-puppeteer-core** | Puppeteer core for real browser automation | [rebrowser-puppeteer-core](https://www.npmjs.com/package/rebrowser-puppeteer-core) |
+| **express** | Web server for API endpoints | [express](https://expressjs.com/) |
+| **inversify** | Dependency injection for TypeScript | [inversify](https://inversify.io/) |
+| **inversify-express-utils** | Express integration for Inversify | [inversify-express-utils](https://github.com/inversify/inversify-express-utils) |
+| **sharp** | High-performance image processing | [sharp](https://sharp.pixelplumbing.com/) |
+| **dotenv** | Environment variable management | [dotenv](https://github.com/motdotla/dotenv) |
+| **supertest** | HTTP assertions for testing Express APIs | [supertest](https://github.com/ladjs/supertest) |
+| **typescript** | TypeScript language support | [typescript](https://www.typescriptlang.org/) |
+| **ts-node** | TypeScript execution environment | [ts-node](https://typestrong.org/ts-node/) |
 
 ## 📖 Libraries
-- [TS](libs/weights-api.ts), [JS](libs/weights-api.js), and [Python](libs/weights_api.py) libraries are availiable too. Please use them for easy access to the unofficial Weights.gg API.
-- For installing the Python module in your env, simply navigate to `libs` and use `pip install .` to install it.
 
-> ⚠️ DISCLAIMER – UNOFFICIAL API
+| Language | Library | Install / Usage |
+|----------|---------|-----------------|
+| TypeScript | [`libs/weights-api.ts`](libs/weights-api.ts) | Import directly in your TS project |
+| JavaScript | [`libs/weights-api.js`](libs/weights-api.js) | Import directly in your JS project |
+| Python | [`libs/weights_api.py`](libs/weights_api.py) | `cd libs && pip install .` |
 
-This repository documents an **unofficial API** for [weights.com](https://www.weights.com), based on public network traffic analysis. This project is **not affiliated with, endorsed by, or maintained by Weights or Paulson Court, Inc.**
+---
 
-The purpose of this documentation and wrapper is strictly **educational and experimental**. It is intended for **personal prototyping and testing only**. **No guarantee is given** regarding the availability, legality, or long-term stability of these endpoints.
+> ⚠️ **DISCLAIMER – UNOFFICIAL API**  
+> This repository documents an **unofficial API** for [weights.com](https://www.weights.com), based on public network traffic analysis.  
+> This project is **not affiliated with, endorsed by, or maintained by Weights or Paulson Court, Inc.**  
+> Intended for **educational and experimental** use only. No guarantee is given regarding the availability, legality, or long-term stability of these endpoints.
+
+---
 
 ## ❗ Compliance with Weights Terms of Service
 
@@ -90,12 +109,14 @@ As outlined in Weights’ Terms of Service ([weights.com/terms](https://www.weig
 
 By using this repository, you agree to:
 
-- **Not use this API for commercial purposes**.
-- **Avoid mass scraping or abuse of the service**.
-- **Comply with all Weights policies**, including those related to security, content, and intellectual property.
-- **Migrate to the official API** as soon as it becomes publicly available.
+- **Not use this API for commercial purposes**
+- **Avoid mass scraping or abuse of the service**
+- **Comply with all Weights policies**, including those related to security, content, and intellectual property
+- **Migrate to the official API** as soon as it becomes publicly available
 
 📬 If Weights or an authorized representative requests takedown of this repository, it will be promptly removed.
+
+---
 
 ## 🤝 Community-driven intent
 
