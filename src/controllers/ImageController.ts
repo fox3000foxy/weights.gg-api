@@ -9,8 +9,14 @@ import { GenerateImageJob } from "../types";
 import { TYPES } from "../types";
 import { EventEmitter } from "events";
 import { Request, Response } from "express";
+import * as yup from "yup";
 
 let generateTimer: number = 0;
+
+const generateImageQuerySchema = yup.object({
+  prompt: yup.string().min(10, "Prompt is too short").required("Prompt is required"),
+  loraName: yup.string().nullable(),
+});
 
 @controller("/generateImage")
 export class ImageController {
@@ -26,6 +32,12 @@ export class ImageController {
 
   @httpGet("/")
   public async generateImage(@request() req: Request, @response() res: Response) {
+    try {
+      await generateImageQuerySchema.validate(req.query, { abortEarly: false, stripUnknown: true });
+    } catch (err: any) {
+      return res.status(400).json({ error: "Validation error", details: err.errors });
+    }
+
     if (!generateTimer) {
       generateTimer = 100;
     } else {
@@ -40,11 +52,7 @@ export class ImageController {
       return;
     }
 
-    const { prompt, loraName } = req.query;
-    if (!prompt || typeof prompt !== "string" || prompt.length < 10) {
-      res.status(400).send({ error: "Prompt is too short" });
-      return;
-    }
+    const { prompt, loraName } = req.query as { prompt: string; loraName?: string };
 
     const imageId = this.imageService.generateImageId();
 

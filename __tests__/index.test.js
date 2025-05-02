@@ -176,21 +176,29 @@ describe("Controllers", () => {
     test("/search-loras returns 400 if query missing", async () => {
         const res = await request(app).get("/search-loras");
         expect(res.statusCode).toBe(400);
+        expect(res.body).toHaveProperty("error", "Validation error");
+        expect(res.body.details).toContain("Query parameter is required.");
     }, 60000);
 
     test("/search-loras returns 200 with query param", async () => {
         const res = await request(app).get("/search-loras?query=test");
-        expect([200, 204, 400]).toContain(res.statusCode); // Accept 200, 204, or 400 depending on implementation
+        expect([200, 204, 400]).toContain(res.statusCode);
+        // Optionally: 
+        expect(res.body).toBeInstanceOf(Array);
     }, 60000);
 
     test("/generateImage returns 400 if prompt is too short", async () => {
         const res = await request(app).get("/generateImage?prompt=short");
         expect(res.statusCode).toBe(400);
+        expect(res.body).toHaveProperty("error", "Validation error");
+        expect(res.body.details).toContain("Prompt is too short");
     }, 60000);
 
     test("/generateImage returns 400 if prompt is missing", async () => {
         const res = await request(app).get("/generateImage");
         expect(res.statusCode).toBe(400);
+        expect(res.body).toHaveProperty("error", "Validation error");
+        expect(res.body.details).toContain("Prompt is required");
     }, 60000);
 
     // test("/generateImage returns 401 if API_KEY is missing or invalid", async () => {
