@@ -4,6 +4,7 @@ import { controller, httpGet, request, response, next } from "inversify-express-
 import { TYPES } from "../types";
 import { IStatusService } from "../services/statusService";
 import * as yup from "yup";
+import { checkApiKey } from "../middlewares/checkApiKey";
 
 const statusQuerySchema = yup.object({
   imageId: yup.string().required("imageId is required"),
@@ -15,7 +16,7 @@ export class StatusController {
         @inject(TYPES.StatusService) private statusService: IStatusService,
     ) {}
 
-    @httpGet("/:imageId")
+    @httpGet("/:imageId", checkApiKey)
     public async getImageStatus(
       @request() req: Request,
       @response() res: Response,

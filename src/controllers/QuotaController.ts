@@ -3,6 +3,7 @@ import { controller, httpGet } from "inversify-express-utils";
 import { IPuppeteerService } from "../services/puppeteerService";
 import { TYPES } from "../types";
 import { Request, Response } from "express";
+import { checkApiKey } from "../middlewares/checkApiKey";
 
 @controller("/quota")
 export class QuotaController {
@@ -10,7 +11,7 @@ export class QuotaController {
         @inject(TYPES.PuppeteerService) private puppeteerService: IPuppeteerService,
     ) {}
 
-    @httpGet("/")
+    @httpGet("/", checkApiKey)
     public async getQuota(_req: Request, res: Response) {
         const generationPage = await this.puppeteerService.getGenerationPageReady();
 

@@ -6,6 +6,7 @@ import { TYPES } from "../types";
 import { Request, Response } from "express";
 import { ILoraService } from "services/loraService";
 import * as yup from "yup";
+import { checkApiKey } from "../middlewares/checkApiKey";
 
 const searchLoraQuerySchema = yup.object({
   query: yup.string().required("Query parameter is required."),
@@ -19,7 +20,7 @@ export class LoraController {
     @inject(TYPES.LoraService) private loraService: ILoraService
   ) {}
 
-  @httpGet("/")
+  @httpGet("/", checkApiKey)
   public async searchLora(@request() req: Request, @response() res: Response) {
     try {
       await searchLoraQuerySchema.validate(req.query, { abortEarly: false, stripUnknown: true });

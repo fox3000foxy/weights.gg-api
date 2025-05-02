@@ -10,6 +10,7 @@ import { TYPES } from "../types";
 import { EventEmitter } from "events";
 import { Request, Response } from "express";
 import * as yup from "yup";
+import { checkApiKey } from "../middlewares/checkApiKey";
 
 let generateTimer: number = 0;
 
@@ -30,7 +31,7 @@ export class ImageController {
     @inject(TYPES.StatusService) private statusService: IStatusService,
   ) {}
 
-  @httpGet("/")
+  @httpGet("/", checkApiKey)
   public async generateImage(@request() req: Request, @response() res: Response) {
     try {
       await generateImageQuerySchema.validate(req.query, { abortEarly: false, stripUnknown: true });
